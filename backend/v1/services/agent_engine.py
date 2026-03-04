@@ -15,6 +15,7 @@ from typing import Any
 from agents import Agent, ModelSettings, Runner, function_tool, set_tracing_disabled
 from agents.extensions.models.litellm_model import LitellmModel
 from agents import RunContextWrapper
+from agents.stream_events import RawResponsesStreamEvent
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -55,6 +56,18 @@ class FormSessionContext:
 # Tool
 # ---------------------------------------------------------------------------
 
+def _is_placeholder_value(value: str) -> bool:
+    """True if value looks like a placeholder (e.g. [user's full name]) and must not be saved."""
+    if not value or not value.strip():
+        return True
+    v = value.strip()
+    if "[user's " in v.lower() or "[user’s " in v.lower():
+        return True
+    if v.startswith("[") and v.endswith("]") and "user" in v.lower():
+        return True
+    return False
+
+
 @function_tool
 def save_answer(
     ctx: RunContextWrapper[FormSessionContext],
@@ -75,6 +88,9 @@ def save_answer(
     valid_fields = {f["name"] for f in (form.fields_schema or [])}
     if valid_fields and field_name not in valid_fields:
         return f"Error: '{field_name}' is not a valid field. Valid: {', '.join(sorted(valid_fields))}"
+
+    if _is_placeholder_value(value):
+        return f"Error: Do not save placeholder text like [user's ...]. Only save the actual words the user said. Ask the user to repeat their answer."
 
     existing = db.execute(
         select(Answer).where(
@@ -117,7 +133,11 @@ def save_answer(
 # Instructions
 # ---------------------------------------------------------------------------
 
-def _build_instructions(form: Form, collected_answers: dict[str, str] | None = None) -> str:
+def _build_instructions(
+    form: Form,
+    collected_answers: dict[str, str] | None = None,
+    voice_mode: bool = False,
+) -> str:
     fields_desc = ""
     if form.fields_schema:
         for f in form.fields_schema:
@@ -135,7 +155,14 @@ def _build_instructions(form: Form, collected_answers: dict[str, str] | None = N
         still = [f for f in required if f not in collected_answers]
         progress = f"\n## Progress\nCollected:\n" + "\n".join(lines) + f"\nStill needed: {', '.join(still) or 'none'}.\n"
 
+    voice_note = ""
+    if voice_mode:
+        voice_note = """
+## Voice mode
+You are the interviewer. The user will speak their answers. Your job is ONLY to ask the form questions one at a time and record their spoken answers with save_answer. Never answer the form questions yourself. Treat each user utterance as their answer (or clarification) and either save it or ask the next question."""
+
     return f"""You are a conversational form assistant. Persona: {persona}
+{voice_note}
 
 ## Form: {form.title}
 {form.description or ""}
@@ -162,10 +189,14 @@ def _get_llm() -> LitellmModel:
     return LitellmModel(model=MODEL, api_key=api_key)
 
 
-def build_form_agent(form: Form, collected_answers: dict[str, str] | None = None) -> Agent[FormSessionContext]:
+def build_form_agent(
+    form: Form,
+    collected_answers: dict[str, str] | None = None,
+    voice_mode: bool = False,
+) -> Agent[FormSessionContext]:
     if not _supports_function_calling():
         logger.warning("Model %s does not support function calling; tool calls may fail.", MODEL)
-    instructions = _build_instructions(form, collected_answers=collected_answers)
+    instructions = _build_instructions(form, collected_answers=collected_answers, voice_mode=voice_mode)
     return Agent(
         name=f"FormAgent-{form.slug}",
         instructions=instructions,
@@ -214,6 +245,8 @@ async def process_agent_message(
     db: Session,
     respondent_session: RespondentSession,
     user_text: str,
+    *,
+    persist_messages: bool = True,
 ) -> AgentResult:
     if respondent_session.status != "active":
         return AgentResult(
@@ -227,7 +260,8 @@ async def process_agent_message(
         return AgentResult(assistant_message="Form not found.", state="error", accepted=False)
 
     collected = _load_collected_answers(db, respondent_session.id)
-    agent = build_form_agent(form, collected_answers=collected)
+    voice_mode = getattr(respondent_session, "channel", None) == "voice"
+    agent = build_form_agent(form, collected_answers=collected, voice_mode=voice_mode)
     context = FormSessionContext(
         db=db,
         respondent_session=respondent_session,
@@ -235,8 +269,9 @@ async def process_agent_message(
         collected_answers=collected,
     )
 
-    db.add(Message(session_id=respondent_session.id, role="user", content=user_text))
-    db.flush()
+    if persist_messages:
+        db.add(Message(session_id=respondent_session.id, role="user", content=user_text))
+        db.flush()
 
     history = _load_history(db, respondent_session.id)
     input_items = history + [{"role": "user", "content": user_text}]
@@ -287,11 +322,99 @@ async def process_agent_message(
             else:
                 assistant_message = "I'm having trouble processing that. Please try again."
 
-    db.add(Message(session_id=respondent_session.id, role="assistant", content=assistant_message))
-    db.flush()
+    if persist_messages:
+        db.add(Message(session_id=respondent_session.id, role="assistant", content=assistant_message))
+        db.flush()
     state = respondent_session.status
 
     return AgentResult(assistant_message=assistant_message, state=state, accepted=True)
+
+
+async def stream_agent_message(
+    db: Session,
+    respondent_session: RespondentSession,
+    user_text: str,
+):
+    """Yield (event_type, data) tuples as the agent streams its response.
+
+    Event types: "delta" (token), "done" (final summary with state).
+    """
+    if respondent_session.status != "active":
+        yield "done", {"state": respondent_session.status, "accepted": False, "assistant_message": "This session is no longer active."}
+        return
+
+    form = db.get(Form, respondent_session.form_id)
+    if not form:
+        yield "done", {"state": "error", "accepted": False, "assistant_message": "Form not found."}
+        return
+
+    collected = _load_collected_answers(db, respondent_session.id)
+    voice_mode = getattr(respondent_session, "channel", None) == "voice"
+    agent = build_form_agent(form, collected_answers=collected, voice_mode=voice_mode)
+    context = FormSessionContext(
+        db=db,
+        respondent_session=respondent_session,
+        form=form,
+        collected_answers=collected,
+    )
+
+    db.add(Message(session_id=respondent_session.id, role="user", content=user_text))
+    db.flush()
+
+    history = _load_history(db, respondent_session.id)
+    input_items = history + [{"role": "user", "content": user_text}]
+
+    streamed_text = ""
+    final_output = ""
+    try:
+        result = Runner.run_streamed(
+            starting_agent=agent,
+            input=input_items,
+            context=context,
+            max_turns=5,
+        )
+        async for event in result.stream_events():
+            if isinstance(event, RawResponsesStreamEvent):
+                data = event.data
+                # Only stream text output deltas — skip function_call_arguments.delta
+                # which contains raw JSON tool-call args and should never be shown to users.
+                event_type = getattr(data, "type", "")
+                if event_type == "response.output_text.delta":
+                    delta = getattr(data, "delta", "")
+                    if delta:
+                        streamed_text += delta
+                        yield "delta", {"content": delta}
+
+        final = await result.get_final_result()
+        final_output = str(final.final_output).strip() if final.final_output else ""
+
+        # If nothing was streamed (e.g. model only made tool calls with no text turn),
+        # fall back to sending the final_output in one shot.
+        if not streamed_text and final_output:
+            streamed_text = final_output
+            yield "delta", {"content": final_output}
+
+    except Exception as exc:
+        logger.exception("Streaming agent run failed: %s", exc)
+        if not streamed_text:
+            streamed_text = "I'm having trouble processing that. Please try again."
+            yield "delta", {"content": streamed_text}
+
+    if not streamed_text:
+        streamed_text = "Could you repeat that?"
+        yield "delta", {"content": streamed_text}
+
+    # Use final_output for persistence when available — it's the authoritative
+    # clean message from the Runner (no tool-call artefacts).
+    saved_message = final_output or streamed_text
+
+    db.add(Message(session_id=respondent_session.id, role="assistant", content=saved_message))
+    db.flush()
+
+    db.expire(respondent_session)
+    state = respondent_session.status
+
+    yield "done", {"state": state, "accepted": True, "assistant_message": saved_message}
 
 
 async def generate_initial_greeting(db: Session, respondent_session: RespondentSession) -> str:

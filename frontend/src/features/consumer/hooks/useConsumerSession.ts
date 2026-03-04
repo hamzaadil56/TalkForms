@@ -1,9 +1,9 @@
-/** Hook for managing consumer form session state */
-import { useCallback, useState } from "react";
-import { createSession, sendMessage } from "../api/consumerApi";
+/** Hook for managing consumer form session state with streaming support */
+import { useCallback, useRef, useState } from "react";
+import { createSession, sendMessage, streamMessage } from "../api/consumerApi";
 import type { ChatMessage } from "../../../shared/types/api";
 
-export type SessionStatus = "idle" | "starting" | "active" | "sending" | "completed" | "error";
+export type SessionStatus = "idle" | "starting" | "active" | "sending" | "streaming" | "completed" | "error";
 
 interface UseConsumerSessionReturn {
 	sessionId: string;
@@ -22,6 +22,7 @@ export function useConsumerSession(): UseConsumerSessionReturn {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [status, setStatus] = useState<SessionStatus>("idle");
 	const [error, setError] = useState<string | null>(null);
+	const streamingIndexRef = useRef<number>(-1);
 
 	const isStarted = Boolean(sessionId && sessionToken);
 
@@ -42,16 +43,13 @@ export function useConsumerSession(): UseConsumerSessionReturn {
 		}
 	}, []);
 
-	const send = useCallback(
+	const sendNonStreaming = useCallback(
 		async (text: string) => {
-			if (!text.trim() || !sessionId || !sessionToken) return;
-
-			setMessages((prev) => [...prev, { role: "user", content: text.trim(), timestamp: Date.now() }]);
+			setMessages((prev) => [...prev, { role: "user", content: text, timestamp: Date.now() }]);
 			setStatus("sending");
 			setError(null);
-
 			try {
-				const response = await sendMessage(sessionId, sessionToken, text.trim());
+				const response = await sendMessage(sessionId, sessionToken, text);
 				setMessages((prev) => [
 					...prev,
 					{ role: "assistant", content: response.assistant_message, timestamp: Date.now() },
@@ -63,6 +61,69 @@ export function useConsumerSession(): UseConsumerSessionReturn {
 			}
 		},
 		[sessionId, sessionToken],
+	);
+
+	const send = useCallback(
+		async (text: string) => {
+			if (!text.trim() || !sessionId || !sessionToken) return;
+			const trimmed = text.trim();
+
+			const userMsg: ChatMessage = { role: "user", content: trimmed, timestamp: Date.now() };
+			const placeholderMsg: ChatMessage = { role: "assistant", content: "", timestamp: Date.now() };
+
+			setMessages((prev) => {
+				const next = [...prev, userMsg, placeholderMsg];
+				streamingIndexRef.current = next.length - 1;
+				return next;
+			});
+			setStatus("streaming");
+			setError(null);
+
+			let streamFailed = false;
+
+			try {
+				await streamMessage(
+					sessionId,
+					sessionToken,
+					trimmed,
+					(delta) => {
+						setMessages((prev) => {
+							const updated = [...prev];
+							const idx = streamingIndexRef.current;
+							if (idx >= 0 && idx < updated.length) {
+								updated[idx] = {
+									...updated[idx],
+									content: updated[idx].content + delta,
+								};
+							}
+							return updated;
+						});
+					},
+					(doneData) => {
+						streamingIndexRef.current = -1;
+						setStatus(doneData.state === "completed" ? "completed" : "active");
+					},
+					(errMsg) => {
+						streamingIndexRef.current = -1;
+						if (errMsg.includes("Not Found") || errMsg.includes("404")) {
+							streamFailed = true;
+						} else {
+							setError(errMsg);
+							setStatus("error");
+						}
+					},
+				);
+			} catch {
+				streamFailed = true;
+			}
+
+			if (streamFailed) {
+				streamingIndexRef.current = -1;
+				setMessages((prev) => prev.slice(0, -2));
+				await sendNonStreaming(trimmed);
+			}
+		},
+		[sessionId, sessionToken, sendNonStreaming],
 	);
 
 	return {

@@ -22,10 +22,11 @@ export default defineConfig(({ mode }) => {
 					target: backendUrl,
 					changeOrigin: true,
 				},
-				"/v1": {
-					target: backendUrl,
-					changeOrigin: true,
-				},
+			"/v1": {
+				target: backendUrl,
+				changeOrigin: true,
+				ws: true,
+			},
 				"/ws": {
 					target: wsUrl,
 					ws: true,

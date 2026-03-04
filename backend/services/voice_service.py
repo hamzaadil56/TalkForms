@@ -119,7 +119,13 @@ class VoiceService:
         if not self.agent:
             raise RuntimeError("VoiceAgent not initialized")
 
-        # Convert bytes to numpy array
+        # Convert bytes to numpy array (int16 = 2 bytes; buffer length must be even)
+        def _safe_int16_buffer(raw: bytes) -> np.ndarray:
+            n = (len(raw) // 2) * 2
+            if n < len(raw):
+                logger.debug("Truncated audio buffer by %d byte(s) for int16 alignment", len(raw) - n)
+            return np.frombuffer(raw[:n], dtype=np.int16)
+
         audio_array = None
         try:
             # Try to read as WAV first
@@ -128,7 +134,7 @@ class VoiceService:
                 sample_rate = wav_file.getframerate()
                 n_channels = wav_file.getnchannels()
                 audio_bytes = wav_file.readframes(wav_file.getnframes())
-                audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
+                audio_array = _safe_int16_buffer(audio_bytes)
         except Exception as e1:
             logger.debug("Not WAV format, trying WebM conversion: %s", e1)
             # If not WAV, try to convert WebM to WAV
@@ -138,12 +144,15 @@ class VoiceService:
                 with wave.open(audio_io, "rb") as wav_file:
                     sample_rate = wav_file.getframerate()
                     audio_bytes = wav_file.readframes(wav_file.getnframes())
-                    audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
+                    audio_array = _safe_int16_buffer(audio_bytes)
             except Exception as e2:
                 logger.warning("Could not process audio format: %s. Trying raw PCM.", e2)
-                # Last resort: assume raw PCM at 24kHz
-                audio_array = np.frombuffer(audio_data, dtype=np.int16)
+                # Last resort: assume raw PCM at 24kHz (e.g. incomplete WebM → truncate to even length)
+                audio_array = _safe_int16_buffer(audio_data)
                 sample_rate = 24000
+
+        if audio_array is None or len(audio_array) == 0:
+            raise ValueError("No valid audio data: buffer empty or failed to decode")
 
         # Ensure mono and correct format
         if len(audio_array.shape) > 1:
@@ -205,6 +214,32 @@ class VoiceService:
                 raise
 
         return transcribed_text, pcm_audio_iterator()
+
+    async def synthesize_speech(self, text: str) -> AsyncIterator[bytes]:
+        """
+        TTS-only: synthesize the given text to PCM audio. Does NOT run text through
+        the voice agent's LLM. Use this when you already have the text to speak
+        (e.g. form agent questions) and only need speech.
+        """
+        if not self.agent:
+            raise RuntimeError("VoiceAgent not initialized")
+
+        from agents.voice import TTSModelSettings
+
+        logger.debug("Synthesizing speech for: %s", text[:80] + "..." if len(text) > 80 else text)
+        wav_chunks = []
+        async for wav_chunk in self.agent._tts_model.run(text, TTSModelSettings()):
+            wav_chunks.append(wav_chunk)
+
+        complete_wav = b"".join(wav_chunks)
+        pcm_data = self._extract_pcm_from_wav(complete_wav)
+        if not pcm_data:
+            logger.error("Failed to extract PCM from WAV")
+            return
+
+        chunk_size = 4096
+        for i in range(0, len(pcm_data), chunk_size):
+            yield pcm_data[i : i + chunk_size]
 
     async def process_text_message(self, text: str) -> tuple[str, AsyncIterator[bytes]]:
         """

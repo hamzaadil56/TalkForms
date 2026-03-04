@@ -1,4 +1,4 @@
-/** Prompt-based form builder — admin writes requirements, AI generates form fields */
+/** Prompt-based form builder — Living Interface botanical theme */
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 import type { FormField } from "../../../shared/types/api";
 
@@ -12,15 +12,23 @@ interface PromptFormBuilderProps {
 }
 
 const FIELD_TYPES = [
-	"text",
-	"email",
-	"number",
-	"phone",
-	"url",
-	"date",
-	"select",
-	"boolean",
+	"text", "email", "number", "phone", "url", "date", "select", "boolean",
 ] as const;
+
+const inputStyle: React.CSSProperties = {
+	background: "var(--stone-0)",
+	border: "1.5px solid var(--stone-200)",
+};
+
+const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+	e.currentTarget.style.borderColor = "var(--teal-400)";
+	e.currentTarget.style.boxShadow = "0 0 0 3px rgba(20,184,166,0.12)";
+};
+
+const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+	e.currentTarget.style.borderColor = "var(--stone-200)";
+	e.currentTarget.style.boxShadow = "none";
+};
 
 export function PromptFormBuilder({
 	prompt,
@@ -33,19 +41,12 @@ export function PromptFormBuilder({
 	const addField = useCallback(() => {
 		onFieldsChange((prev) => [
 			...prev,
-			{
-				name: `field_${Date.now()}`,
-				type: "text",
-				required: true,
-				description: "",
-			},
+			{ name: `field_${Date.now()}`, type: "text", required: true, description: "" },
 		]);
 	}, [onFieldsChange]);
 
 	const removeField = useCallback(
-		(index: number) => {
-			onFieldsChange((prev) => prev.filter((_, i) => i !== index));
-		},
+		(index: number) => { onFieldsChange((prev) => prev.filter((_, i) => i !== index)); },
 		[onFieldsChange],
 	);
 
@@ -62,24 +63,28 @@ export function PromptFormBuilder({
 
 	return (
 		<div className="space-y-6">
-			{/* AI Prompt Section */}
-			<section className="glass-elevated rounded-2xl p-6 border border-border/40 space-y-4">
+			{/* AI Prompt */}
+			<section
+				className="rounded-2xl p-6 space-y-4"
+				style={{ background: "var(--stone-0)", border: "1px solid var(--border-default)" }}
+			>
 				<div>
-					<h2 className="text-lg font-heading text-text-primary">
+					<h2 className="font-body text-[11px] font-semibold uppercase tracking-widest text-text-muted mb-1">
 						Describe Your Form
 					</h2>
-					<p className="text-sm text-text-tertiary mt-1">
-						Tell the AI what information you want to collect. Be as specific as
-						you like — include field types, validation rules, and conversation
-						style.
+					<p className="font-body text-[13px] text-text-secondary">
+						Tell the AI what information you want to collect. Be specific about field types and validation.
 					</p>
 				</div>
 
 				<textarea
 					value={prompt}
 					onChange={(e) => onPromptChange(e.target.value)}
-					className="w-full px-4 py-3 glass rounded-xl border border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent-primary resize-none"
-					placeholder="Example: I want to collect leads for my real estate business. I need their full name, email address, phone number, budget range (a number between $50k and $5M), preferred neighborhood, and when they're looking to buy. Be friendly and professional."
+					className="w-full px-4 py-[10px] rounded-lg font-body text-text-primary text-[15px] outline-none transition-all placeholder:text-text-muted resize-none"
+					style={inputStyle}
+					onFocus={onFocus}
+					onBlur={onBlur}
+					placeholder="Example: I want to collect leads for my real estate business. I need their full name, email address, phone number, budget range, preferred neighborhood, and when they're looking to buy."
 					rows={5}
 				/>
 
@@ -87,50 +92,48 @@ export function PromptFormBuilder({
 					type="button"
 					onClick={onGenerate}
 					disabled={isGenerating || prompt.trim().length < 10}
-					className="px-6 py-3 rounded-xl bg-accent-primary text-bg-primary font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+					className="px-6 py-[10px] rounded-lg font-body font-semibold text-[13px] text-white transition-all duration-150 disabled:opacity-50 hover:opacity-90 flex items-center gap-2"
+					style={{ background: "var(--gradient-brand)", boxShadow: "var(--shadow-teal)" }}
 				>
 					{isGenerating ? (
 						<>
-							<span className="w-4 h-4 border-2 border-bg-primary border-t-transparent rounded-full animate-spin" />
+							<span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
 							Generating...
 						</>
 					) : (
 						<>
-							<svg
-								className="w-5 h-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								strokeWidth={1.5}
-								stroke="currentColor"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"
-								/>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
 							</svg>
-							Generate Form with AI
+							Generate with AI
 						</>
 					)}
 				</button>
 			</section>
 
-			{/* Generated Fields Section */}
-			<section className="glass-elevated rounded-2xl p-6 border border-border/40 space-y-4">
+			{/* Fields */}
+			<section
+				className="rounded-2xl p-6 space-y-4"
+				style={{ background: "var(--stone-0)", border: "1px solid var(--border-default)" }}
+			>
 				<div className="flex items-center justify-between">
 					<div>
-						<h2 className="text-lg font-heading text-text-primary">
+						<h2 className="font-body text-[11px] font-semibold uppercase tracking-widest text-text-muted mb-1">
 							Form Fields
 						</h2>
-						<p className="text-sm text-text-tertiary">
-							{fields.length} field{fields.length !== 1 ? "s" : ""} — edit or
-							add more below
+						<p className="font-body text-[13px] text-text-secondary">
+							{fields.length} field{fields.length !== 1 ? "s" : ""} — edit or add more
 						</p>
 					</div>
 					<button
 						type="button"
 						onClick={addField}
-						className="px-4 py-2 text-sm rounded-xl bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 font-medium"
+						className="px-3 py-[6px] font-body text-[13px] rounded-lg font-medium transition-all hover:opacity-80"
+						style={{
+							color: "var(--teal-700)",
+							border: "1px solid var(--border-teal)",
+							background: "var(--teal-50)",
+						}}
 					>
 						+ Add Field
 					</button>
@@ -138,7 +141,7 @@ export function PromptFormBuilder({
 
 				{fields.length === 0 ? (
 					<div className="text-center py-8">
-						<p className="text-text-tertiary mb-3">
+						<p className="font-body text-text-muted text-[13px]">
 							No fields yet. Use AI generation above or add fields manually.
 						</p>
 					</div>
@@ -161,8 +164,6 @@ export function PromptFormBuilder({
 	);
 }
 
-// --- Field Card ---
-
 interface FieldCardProps {
 	field: FormField;
 	index: number;
@@ -171,29 +172,28 @@ interface FieldCardProps {
 	onRemove: () => void;
 }
 
-function FieldCard({
-	field,
-	index,
-	totalFields,
-	onUpdate,
-	onRemove,
-}: FieldCardProps) {
+function FieldCard({ field, index, totalFields, onUpdate, onRemove }: FieldCardProps) {
 	return (
-		<div className="glass rounded-xl p-4 border border-border/30 space-y-3 group">
+		<div
+			className="rounded-xl p-4 space-y-3 group"
+			style={{ background: "var(--stone-50)", border: "1px solid var(--border-subtle)" }}
+		>
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
-					<span className="text-xs text-text-tertiary font-mono bg-surface/50 px-2 py-0.5 rounded">
+					<span
+						className="font-mono text-[11px] px-2 py-0.5 rounded"
+						style={{ background: "var(--stone-100)", color: "var(--text-muted)" }}
+					>
 						#{index + 1}
 					</span>
-					<span className="text-xs text-text-tertiary font-mono">
-						{field.name}
-					</span>
+					<span className="font-mono text-[11px] text-text-muted">{field.name}</span>
 				</div>
 				{totalFields > 1 && (
 					<button
 						type="button"
 						onClick={onRemove}
-						className="px-1.5 py-0.5 text-xs text-error/70 hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
+						className="px-1.5 py-0.5 font-body text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
+						style={{ color: "var(--color-error)" }}
 					>
 						Remove
 					</button>
@@ -202,17 +202,19 @@ function FieldCard({
 
 			<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
 				<input
-					className="px-3 py-2 glass rounded-lg border border-border text-sm text-text-primary focus:outline-none focus:border-accent-primary"
+					className="px-3 py-2 rounded-lg font-mono text-[13px] text-text-primary outline-none transition-all"
+					style={inputStyle}
+					onFocus={onFocus}
+					onBlur={onBlur}
 					value={field.name}
-					onChange={(e) =>
-						onUpdate({
-							name: e.target.value.replace(/\s+/g, "_").toLowerCase(),
-						})
-					}
+					onChange={(e) => onUpdate({ name: e.target.value.replace(/\s+/g, "_").toLowerCase() })}
 					placeholder="field_name"
 				/>
 				<input
-					className="md:col-span-3 px-3 py-2 glass rounded-lg border border-border text-sm text-text-primary focus:outline-none focus:border-accent-primary"
+					className="md:col-span-3 px-3 py-2 rounded-lg font-body text-[13px] text-text-primary outline-none transition-all"
+					style={inputStyle}
+					onFocus={onFocus}
+					onBlur={onBlur}
 					value={field.description}
 					onChange={(e) => onUpdate({ description: e.target.value })}
 					placeholder="Field description..."
@@ -221,25 +223,25 @@ function FieldCard({
 
 			<div className="flex flex-wrap gap-3 items-center">
 				<select
-					className="px-3 py-2 glass rounded-lg border border-border text-sm text-text-primary focus:outline-none focus:border-accent-primary"
+					className="px-3 py-2 rounded-lg font-body text-[13px] text-text-primary outline-none transition-all"
+					style={inputStyle}
+					onFocus={onFocus}
+					onBlur={onBlur}
 					value={field.type}
-					onChange={(e) =>
-						onUpdate({ type: e.target.value as FormField["type"] })
-					}
+					onChange={(e) => onUpdate({ type: e.target.value as FormField["type"] })}
 				>
 					{FIELD_TYPES.map((t) => (
-						<option key={t} value={t}>
-							{t.charAt(0).toUpperCase() + t.slice(1)}
-						</option>
+						<option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
 					))}
 				</select>
 
-				<label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+				<label className="flex items-center gap-2 font-body text-[13px] text-text-secondary cursor-pointer">
 					<input
 						type="checkbox"
 						checked={field.required}
 						onChange={(e) => onUpdate({ required: e.target.checked })}
-						className="rounded accent-accent-primary"
+						className="rounded"
+						style={{ accentColor: "var(--teal-500)" }}
 					/>
 					Required
 				</label>

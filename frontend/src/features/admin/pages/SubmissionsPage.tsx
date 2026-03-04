@@ -1,12 +1,16 @@
-/** Submissions page for a specific form */
+/** Submissions page — Living Interface botanical theme */
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../../app/AuthProvider";
 import { exportCsv, fetchSubmissions } from "../api/adminApi";
 import { SubmissionTable } from "../components/SubmissionTable";
+import { AdminShell, EmptyState, PageBody, PageHeader } from "../../../shared/ui/Layout";
 import type { SubmissionRow } from "../../../shared/types/api";
 
 export default function SubmissionsPage() {
 	const { formId } = useParams<{ formId: string }>();
+	const { admin, logout } = useAuth();
+	const navigate = useNavigate();
 	const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -37,43 +41,53 @@ export default function SubmissionsPage() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
-			<div className="flex items-center justify-between">
-				<div>
-					<Link to="/admin" className="text-sm text-text-tertiary hover:text-accent-primary mb-2 inline-block">
-						&larr; Back to Dashboard
-					</Link>
-					<h1 className="text-2xl font-heading font-bold text-text-primary">
-						Submissions
-					</h1>
-					<p className="text-sm text-text-tertiary mt-1">Form: {formId}</p>
-				</div>
-				<button
-					onClick={handleExport}
-					disabled={exporting || submissions.length === 0}
-					className="px-4 py-2.5 rounded-xl bg-accent-primary text-bg-primary font-semibold hover:opacity-90 disabled:opacity-50"
-				>
-					{exporting ? "Exporting..." : "Export CSV"}
-				</button>
-			</div>
+		<AdminShell email={admin?.email} onLogout={() => { logout(); navigate("/admin/login"); }}>
+			<PageHeader
+				title="Submissions"
+				subtitle={formId ? `Form: ${formId}` : undefined}
+				backTo="/admin"
+				backLabel="Dashboard"
+				actions={
+					<button
+						onClick={handleExport}
+						disabled={exporting || submissions.length === 0}
+						className="px-5 py-[9px] rounded-lg font-body font-semibold text-[13px] text-white transition-all duration-150 disabled:opacity-50 hover:opacity-90"
+						style={{ background: "var(--gradient-brand)", boxShadow: "var(--shadow-teal)" }}
+					>
+						{exporting ? "Exporting..." : "Export CSV"}
+					</button>
+				}
+			/>
+			<PageBody>
+				{exportStatus && (
+					<div
+						className="rounded-xl p-3 border font-body text-[13px] text-text-secondary mb-4"
+						style={{ background: "var(--stone-50)", borderColor: "var(--border-subtle)" }}
+					>
+						{exportStatus}
+					</div>
+				)}
 
-			{exportStatus && (
-				<div className="glass rounded-xl p-3 border border-border/40 text-sm text-text-secondary">
-					{exportStatus}
-				</div>
-			)}
-
-			{loading ? (
-				<div className="flex justify-center py-20">
-					<div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin" />
-				</div>
-			) : error ? (
-				<div className="glass-elevated rounded-2xl p-8 border border-error/30 text-center">
-					<p className="text-error">{error}</p>
-				</div>
-			) : (
-				<SubmissionTable submissions={submissions} />
-			)}
-		</div>
+				{loading ? (
+					<div className="flex justify-center py-20">
+						<div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+					</div>
+				) : error ? (
+					<div
+						className="rounded-2xl p-8 border text-center"
+						style={{ background: "var(--error-bg)", borderColor: "var(--error-border)" }}
+					>
+						<p className="font-body text-[14px]" style={{ color: "var(--color-error)" }}>{error}</p>
+					</div>
+				) : submissions.length === 0 ? (
+					<EmptyState
+						title="No submissions yet"
+						description="Submissions will appear here once consumers complete your form."
+					/>
+				) : (
+					<SubmissionTable submissions={submissions} />
+				)}
+			</PageBody>
+		</AdminShell>
 	);
 }

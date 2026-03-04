@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 
-// Lazy-loaded pages
 const HomePage = lazy(() => import("../features/admin/pages/HomePage"));
 const LoginPage = lazy(() => import("../features/admin/pages/LoginPage"));
 const DashboardPage = lazy(() => import("../features/admin/pages/DashboardPage"));
@@ -13,13 +12,12 @@ const LegacyVoicePage = lazy(() => import("../features/legacy-voice/pages/Legacy
 
 function PageLoader() {
 	return (
-		<div className="flex items-center justify-center min-h-screen">
-			<div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin" />
+		<div className="flex items-center justify-center min-h-screen" style={{ background: "var(--bg-page)" }}>
+			<div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
 		</div>
 	);
 }
 
-/** Admin layout with header */
 function AdminLayout() {
 	return (
 		<div className="min-h-screen relative z-10">
@@ -30,7 +28,6 @@ function AdminLayout() {
 	);
 }
 
-/** Protected route wrapper */
 function ProtectedRoute() {
 	const { isAuthenticated, isLoading } = useAuth();
 
@@ -53,7 +50,6 @@ export function AppRouter() {
 				<Routes>
 					<Route path="/" element={<HomePage />} />
 
-					{/* Admin routes */}
 					<Route path="/admin/login" element={<LoginPage />} />
 					<Route element={<ProtectedRoute />}>
 						<Route path="/admin" element={<AdminLayout />}>
@@ -64,13 +60,8 @@ export function AppRouter() {
 						</Route>
 					</Route>
 
-					{/* Public consumer routes */}
 					<Route path="/f/:slug" element={<FormPage />} />
-
-					{/* Legacy voice */}
 					<Route path="/legacy/voice" element={<LegacyVoicePage />} />
-
-					{/* 404 fallback */}
 					<Route path="*" element={<Navigate to="/" replace />} />
 				</Routes>
 			</Suspense>

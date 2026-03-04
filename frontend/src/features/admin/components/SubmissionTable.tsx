@@ -1,4 +1,4 @@
-/** Submissions table component */
+/** Submissions table — Living Interface botanical theme */
 import type { SubmissionRow } from "../../../shared/types/api";
 
 interface SubmissionTableProps {
@@ -6,32 +6,39 @@ interface SubmissionTableProps {
 }
 
 export function SubmissionTable({ submissions }: SubmissionTableProps) {
-	// Get all unique field keys across submissions
 	const fieldKeys = Array.from(
 		new Set(submissions.flatMap((s) => Object.keys(s.answers))),
 	);
 
-	if (submissions.length === 0) {
-		return (
-			<div className="glass-elevated rounded-2xl p-12 border border-border/40 text-center">
-				<h2 className="text-xl font-heading text-text-primary mb-2">No submissions yet</h2>
-				<p className="text-text-secondary">
-					Share your form link to start collecting responses.
-				</p>
-			</div>
-		);
-	}
+	if (submissions.length === 0) return null;
 
 	return (
-		<div className="glass rounded-2xl border border-border/40 overflow-hidden">
+		<div
+			className="rounded-2xl overflow-hidden"
+			style={{ background: "var(--stone-0)", border: "1px solid var(--border-default)" }}
+		>
 			<div className="overflow-x-auto">
-				<table className="w-full text-sm">
+				<table className="w-full border-collapse">
 					<thead>
-						<tr className="border-b border-border/40">
-							<th className="px-4 py-3 text-left text-text-tertiary font-medium">#</th>
-							<th className="px-4 py-3 text-left text-text-tertiary font-medium">Completed</th>
+						<tr style={{ borderBottom: "1.5px solid var(--border-subtle)" }}>
+							<th
+								className="px-4 py-3 text-left font-body text-[11px] font-semibold uppercase tracking-widest"
+								style={{ color: "var(--text-muted)", background: "var(--stone-25)" }}
+							>
+								#
+							</th>
+							<th
+								className="px-4 py-3 text-left font-body text-[11px] font-semibold uppercase tracking-widest"
+								style={{ color: "var(--text-muted)", background: "var(--stone-25)" }}
+							>
+								Completed
+							</th>
 							{fieldKeys.map((key) => (
-								<th key={key} className="px-4 py-3 text-left text-text-tertiary font-medium whitespace-nowrap">
+								<th
+									key={key}
+									className="px-4 py-3 text-left font-body text-[11px] font-semibold uppercase tracking-widest whitespace-nowrap"
+									style={{ color: "var(--text-muted)", background: "var(--stone-25)" }}
+								>
 									{key}
 								</th>
 							))}
@@ -41,10 +48,15 @@ export function SubmissionTable({ submissions }: SubmissionTableProps) {
 						{submissions.map((sub, i) => (
 							<tr
 								key={sub.submission_id}
-								className="border-b border-border/20 hover:bg-surface/50"
+								className="transition-colors"
+								style={{ borderBottom: "1px solid var(--border-subtle)" }}
+								onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "var(--stone-25)"; }}
+								onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}
 							>
-								<td className="px-4 py-3 text-text-tertiary">{i + 1}</td>
-								<td className="px-4 py-3 text-text-secondary whitespace-nowrap">
+								<td className="px-4 py-3 font-body text-[13px]" style={{ color: "var(--text-muted)" }}>
+									{i + 1}
+								</td>
+								<td className="px-4 py-3 font-body text-[13px] whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
 									{new Date(sub.completed_at).toLocaleDateString(undefined, {
 										year: "numeric",
 										month: "short",
@@ -54,8 +66,10 @@ export function SubmissionTable({ submissions }: SubmissionTableProps) {
 									})}
 								</td>
 								{fieldKeys.map((key) => (
-									<td key={key} className="px-4 py-3 text-text-primary max-w-[200px] truncate">
-										{sub.answers[key] || "-"}
+									<td key={key} className="px-4 py-3 font-body text-[13px] max-w-[200px] truncate" style={{ color: "var(--text-primary)" }}>
+										{sub.answers[key] || (
+											<span style={{ color: "var(--text-muted)" }}>-</span>
+										)}
 									</td>
 								))}
 							</tr>
@@ -63,7 +77,10 @@ export function SubmissionTable({ submissions }: SubmissionTableProps) {
 					</tbody>
 				</table>
 			</div>
-			<div className="px-4 py-3 border-t border-border/40 text-sm text-text-tertiary">
+			<div
+				className="px-4 py-3 border-t font-body text-[11px] uppercase tracking-widest"
+				style={{ borderColor: "var(--border-subtle)", color: "var(--text-muted)" }}
+			>
 				{submissions.length} submission{submissions.length !== 1 ? "s" : ""}
 			</div>
 		</div>

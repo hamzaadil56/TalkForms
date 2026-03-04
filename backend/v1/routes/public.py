@@ -6,9 +6,11 @@ Uses the agentic form engine (OpenAI Agents SDK) for conversation.
 from __future__ import annotations
 
 import base64
+import json
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,7 +27,9 @@ from ..schemas import (
     PublicSessionCreateResponse,
 )
 from ..security import create_public_session_token, decode_token
-from ..services.agent_engine import generate_initial_greeting, process_agent_message
+from ..services.agent_engine import generate_initial_greeting, process_agent_message, stream_agent_message
+from ..services.gpt_audio_service import chat_with_audio as gpt_audio_chat_with_audio, is_placeholder_transcript
+from backend.config import BackendSettings
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +113,48 @@ async def public_message(
         state=result.state,
         accepted=result.accepted,
         assistant_message=result.assistant_message,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Send message (chat) — streaming SSE
+# ---------------------------------------------------------------------------
+
+@router.post("/sessions/{session_id}/message/stream")
+async def public_message_stream(
+    session_id: str,
+    payload: PublicMessageRequest,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Stream the agent's response token-by-token via SSE."""
+    token = extract_public_session_token(authorization)
+    claims = decode_token(token)
+    if claims.get("type") != "public_session" or claims.get("sid") != session_id:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+
+    respondent_session = db.get(RespondentSession, session_id)
+    if not respondent_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    async def event_generator():
+        try:
+            async for event_type, data in stream_agent_message(db, respondent_session, payload.message):
+                yield f"data: {json.dumps({'type': event_type, **data})}\n\n"
+        except Exception as exc:
+            logger.exception("SSE stream error: %s", exc)
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Stream failed'})}\n\n"
+        finally:
+            db.commit()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -245,11 +291,10 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                         "state": "active",
                     })
 
-                    # Synthesize greeting as audio if voice service available
+                    # Synthesize greeting as audio (TTS only — do not run through voice agent LLM)
                     if voice_service:
                         try:
-                            _, audio_iter = await voice_service.process_text_message(prompt)
-                            async for pcm_chunk in audio_iter:
+                            async for pcm_chunk in voice_service.synthesize_speech(prompt):
                                 encoded = base64.b64encode(pcm_chunk).decode("ascii")
                                 await websocket.send_json({"type": "audio_chunk", "data": encoded})
                             await websocket.send_json({"type": "audio_end"})
@@ -279,7 +324,68 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                     await websocket.close(code=4404)
                     return
 
-                # STT if we have audio chunks and voice service
+                form = db.get(Form, respondent_session.form_id)
+                use_gpt_audio = (
+                    BackendSettings().use_gpt_audio_mini_voice
+                    and audio_chunks
+                    and form
+                    and voice_service
+                )
+
+                if use_gpt_audio:
+                    # gpt-audio-mini: audio in → model returns transcript + reply; we persist and run form agent for save_answer
+                    combined_audio = b"".join(audio_chunks)
+                    wav_bytes = None
+                    try:
+                        wav_bytes = voice_service._convert_webm_to_wav(combined_audio)
+                    except Exception:
+                        pass
+                    if wav_bytes:
+                        try:
+                            audio_b64 = base64.b64encode(wav_bytes).decode("ascii")
+                            user_text, assistant_text = await gpt_audio_chat_with_audio(
+                                audio_b64,
+                                session_id,
+                                respondent_session,
+                                form,
+                                db,
+                            )
+                            # Don't pass placeholder transcripts to the form agent (would save "[user's full name]" etc.)
+                            text_for_form_agent = "[voice input unclear]" if is_placeholder_transcript(user_text) else user_text
+                            # Run form agent for save_answer/state only (no extra messages)
+                            await process_agent_message(
+                                db, respondent_session, text_for_form_agent, persist_messages=False
+                            )
+                            db.add(Message(session_id=session_id, role="user", content=user_text))
+                            db.add(Message(session_id=session_id, role="assistant", content=assistant_text))
+                            db.commit()
+                            audio_chunks = []
+                            await websocket.send_json({"type": "transcription", "data": user_text})
+                            await websocket.send_json({
+                                "type": "assistant_message",
+                                "data": assistant_text,
+                                "state": respondent_session.status,
+                                "accepted": True,
+                            })
+                            if voice_service:
+                                try:
+                                    async for pcm_chunk in voice_service.synthesize_speech(assistant_text):
+                                        encoded = base64.b64encode(pcm_chunk).decode("ascii")
+                                        await websocket.send_json({"type": "audio_chunk", "data": encoded})
+                                    await websocket.send_json({"type": "audio_end"})
+                                except Exception:
+                                    pass
+                            continue
+                        except Exception as e:
+                            logger.exception("gpt-audio-mini voice turn failed: %s", e)
+                            await websocket.send_json({
+                                "type": "error",
+                                "data": f"Voice processing failed: {e}",
+                            })
+                            audio_chunks = []
+                            continue
+
+                # Fallback: STT then form agent (original flow)
                 user_text = transcript.strip()
                 if audio_chunks and voice_service and not user_text:
                     try:
@@ -296,7 +402,6 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                 if not user_text:
                     user_text = "[voice-input-received]"
 
-                # Process through agent engine
                 result = await process_agent_message(db, respondent_session, user_text)
                 db.commit()
                 audio_chunks = []
@@ -309,13 +414,11 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                     "accepted": result.accepted,
                 })
 
-                # Synthesize assistant response as audio
                 if voice_service:
                     try:
-                        _, audio_iter = await voice_service.process_text_message(
+                        async for pcm_chunk in voice_service.synthesize_speech(
                             result.assistant_message
-                        )
-                        async for pcm_chunk in audio_iter:
+                        ):
                             encoded = base64.b64encode(pcm_chunk).decode("ascii")
                             await websocket.send_json({"type": "audio_chunk", "data": encoded})
                         await websocket.send_json({"type": "audio_end"})

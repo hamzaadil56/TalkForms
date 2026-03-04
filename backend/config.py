@@ -35,3 +35,6 @@ class BackendSettings(BaseSettings):
 
     # TTS spin endpoint auth (Bearer token)
     tts_api_key: str = ""
+
+    # Voice: use OpenRouter gpt-audio-mini for audio-in → text-out (then TTS for playback)
+    use_gpt_audio_mini_voice: bool = True
