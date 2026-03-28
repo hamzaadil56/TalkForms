@@ -19,6 +19,7 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 	}, []);
 
 	const handleMicClick = useCallback(() => {
+		if (!voice.initialAgentPlaybackDone) return;
 		if (voice.state === "connected" || voice.state === "speaking") {
 			voice.startRecording();
 		} else if (voice.state === "listening") {
@@ -30,7 +31,7 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 
 	const isCompleted = voice.state === "completed";
 
-	const stateLabel: Record<VoiceState, string> = useMemo(() => ({
+	const baseStateLabel: Record<VoiceState, string> = useMemo(() => ({
 		disconnected: "Disconnected",
 		connecting:   "Connecting...",
 		connected:    "Tap to speak",
@@ -40,6 +41,11 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 		completed:    "Form completed",
 		error:        "Connection error",
 	}), []);
+
+	const headline =
+		voice.state === "connected" && !voice.initialAgentPlaybackDone
+			? "Agent is getting ready…"
+			: baseStateLabel[voice.state];
 
 	return (
 		<div
@@ -78,7 +84,13 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 				{/* Mic button — teal brand gradient, teal pulse */}
 				<button
 					onClick={handleMicClick}
-					disabled={voice.state === "processing" || voice.state === "connecting" || isCompleted}
+					disabled={
+						voice.state === "processing" ||
+						voice.state === "connecting" ||
+						isCompleted ||
+						(!voice.initialAgentPlaybackDone &&
+							(voice.state === "connected" || voice.state === "speaking"))
+					}
 					className="w-[80px] h-[80px] rounded-full border-none grid place-items-center cursor-pointer transition-all duration-150 text-white disabled:opacity-50 disabled:cursor-not-allowed"
 					style={{
 						background: voice.state === "listening"
@@ -105,7 +117,7 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 
 				{/* State label */}
 				<p className="font-display font-semibold text-[20px] text-text-primary tracking-tight">
-					{stateLabel[voice.state]}
+					{headline}
 				</p>
 
 				{voice.error && (
@@ -138,7 +150,7 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 
 			{/* Controls */}
 			<div className="border-t border-border-subtle p-4 flex justify-center gap-3">
-				{voice.state === "connected" && (
+				{voice.state === "connected" && voice.initialAgentPlaybackDone && (
 					<button
 						onClick={voice.startRecording}
 						className="px-5 py-[10px] rounded-lg font-body font-semibold text-[13px] text-white transition-all hover:opacity-90"

@@ -2,7 +2,7 @@
 
 import io
 import wave
-from typing import AsyncIterator
+
 from groq import Groq
 from agents.voice import STTModel, STTModelSettings, AudioInput, StreamedAudioInput, StreamedTranscriptionSession
 

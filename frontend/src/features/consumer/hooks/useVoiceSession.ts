@@ -23,6 +23,8 @@ interface UseVoiceSessionReturn {
 	messages: ChatMessage[];
 	error: string | null;
 	audioLevel: number;
+	/** After first server `audio_end` (greeting or first TTS turn); mic may be enabled. */
+	initialAgentPlaybackDone: boolean;
 	connect: () => void;
 	disconnect: () => void;
 	startRecording: () => void;
@@ -51,6 +53,7 @@ export function useVoiceSession({
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [audioLevel, setAudioLevel] = useState(0);
+	const [initialAgentPlaybackDone, setInitialAgentPlaybackDone] = useState(false);
 
 	const wsRef = useRef<WebSocket | null>(null);
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -63,6 +66,14 @@ export function useVoiceSession({
 	const stateRef = useRef<VoiceState>("disconnected");
 	const pendingAudioEndRef = useRef(false);
 	const onPlaybackDoneRef = useRef<(() => void) | null>(null);
+	const firstServerAudioTurnDoneRef = useRef(false);
+
+	const markFirstServerAudioTurnDone = useCallback(() => {
+		if (!firstServerAudioTurnDoneRef.current) {
+			firstServerAudioTurnDoneRef.current = true;
+			setInitialAgentPlaybackDone(true);
+		}
+	}, []);
 
 	useEffect(() => {
 		stateRef.current = state;
@@ -123,6 +134,8 @@ export function useVoiceSession({
 
 		setState("connecting");
 		setError(null);
+		firstServerAudioTurnDoneRef.current = false;
+		setInitialAgentPlaybackDone(false);
 
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 		const wsUrl = `${protocol}//${window.location.host}/v1/public/sessions/${sessionId}/voice`;
@@ -190,14 +203,16 @@ export function useVoiceSession({
 						// Stay in "speaking" until client finishes playing the queue
 						pendingAudioEndRef.current = true;
 						onPlaybackDoneRef.current = () => {
+							markFirstServerAudioTurnDone();
 							if (stateRef.current !== "completed") {
 								setState("connected");
 							}
 							onPlaybackDoneRef.current = null;
 						};
-						// If nothing is playing and queue is empty, transition now
+						// If nothing is playing and queue is empty, transition now (incl. zero TTS audio)
 						if (!isPlayingRef.current && audioQueueRef.current.length === 0) {
 							pendingAudioEndRef.current = false;
+							markFirstServerAudioTurnDone();
 							if (stateRef.current !== "completed") {
 								setState("connected");
 							}
@@ -226,7 +241,7 @@ export function useVoiceSession({
 				setError("WebSocket connection failed");
 			}
 		};
-	}, [sessionId, sessionToken, addMessage, playAudioQueue]);
+	}, [sessionId, sessionToken, addMessage, playAudioQueue, markFirstServerAudioTurnDone]);
 
 	const disconnect = useCallback(() => {
 		if (wsRef.current) {
@@ -241,6 +256,7 @@ export function useVoiceSession({
 	}, []);
 
 	const startRecording = useCallback(async () => {
+		if (!initialAgentPlaybackDone) return;
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -287,7 +303,7 @@ export function useVoiceSession({
 			setError("Microphone access denied");
 			setState("error");
 		}
-	}, []);
+	}, [initialAgentPlaybackDone]);
 
 	const stopRecording = useCallback(() => {
 		cancelAnimationFrame(animFrameRef.current);
@@ -314,6 +330,7 @@ export function useVoiceSession({
 		messages,
 		error,
 		audioLevel,
+		initialAgentPlaybackDone,
 		connect,
 		disconnect,
 		startRecording,
