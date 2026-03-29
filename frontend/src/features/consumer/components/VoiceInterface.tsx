@@ -20,7 +20,7 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 
 	const handleMicClick = useCallback(() => {
 		if (!voice.initialAgentPlaybackDone) return;
-		if (voice.state === "connected" || voice.state === "speaking") {
+		if (voice.state === "connected") {
 			voice.startRecording();
 		} else if (voice.state === "listening") {
 			voice.stopRecording();
@@ -87,9 +87,9 @@ export function VoiceInterface({ sessionId, sessionToken, onSwitchToChat }: Voic
 					disabled={
 						voice.state === "processing" ||
 						voice.state === "connecting" ||
+						voice.state === "speaking" ||
 						isCompleted ||
-						(!voice.initialAgentPlaybackDone &&
-							(voice.state === "connected" || voice.state === "speaking"))
+						!voice.initialAgentPlaybackDone
 					}
 					className="w-[80px] h-[80px] rounded-full border-none grid place-items-center cursor-pointer transition-all duration-150 text-white disabled:opacity-50 disabled:cursor-not-allowed"
 					style={{

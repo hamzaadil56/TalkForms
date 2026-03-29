@@ -314,6 +314,11 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                 await websocket.send_json({"type": "error", "data": "Authenticate first"})
                 continue
 
+            if msg_type == "start_recording":
+                # Clear any orphaned chunks from a prior turn (belt-and-suspenders with client timing).
+                audio_chunks = []
+                continue
+
             if msg_type == "audio_chunk":
                 try:
                     audio_chunks.append(base64.b64decode(payload.get("data", "")))
@@ -391,6 +396,29 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                     )
                     continue
 
+                # Reject near-silent audio to prevent Whisper hallucinations
+                rms = float(np.sqrt(np.mean(audio_array.astype(np.float64) ** 2)))
+                duration_s = len(audio_array) / 24000.0
+                logger.debug(
+                    "Audio stats: rms=%.1f duration=%.2fs samples=%d",
+                    rms, duration_s, len(audio_array),
+                )
+                if rms < 50 or duration_s < 0.3:
+                    logger.warning(
+                        "Audio too quiet or too short (rms=%.1f, dur=%.2fs) — skipping STT",
+                        rms, duration_s,
+                    )
+                    await websocket.send_json(
+                        {
+                            "type": "assistant_message",
+                            "data": "I didn't quite catch that. Could you please speak a bit louder?",
+                            "state": respondent_session.status,
+                            "accepted": True,
+                        }
+                    )
+                    await websocket.send_json({"type": "audio_end"})
+                    continue
+
                 from agents.voice import AudioInput
 
                 workflow = FormAgentVoiceWorkflow(
@@ -418,17 +446,18 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                     await websocket.send_json({"type": "audio_end"})
                     continue
 
-                transcript_sent = False
                 audio_parts: list[bytes] = []
                 stream_exc: Exception | None = None
                 try:
                     async for event in vp_result.stream():
                         et = getattr(event, "type", "")
-                        if et == "voice_stream_event_transcript":
-                            t = getattr(event, "text", "") or ""
-                            if t:
-                                await websocket.send_json({"type": "transcription", "data": t})
-                                transcript_sent = True
+                        if et == "voice_stream_event_lifecycle":
+                            ev = getattr(event, "event", "")
+                            logger.debug(
+                                "VoicePipeline lifecycle: %s session=%s",
+                                ev,
+                                session_id,
+                            )
                         elif et == "voice_stream_event_audio":
                             data = getattr(event, "data", None)
                             if data is not None:
@@ -455,7 +484,8 @@ async def public_voice_session(websocket: WebSocket, session_id: str):
                             await websocket.send_json({"type": "audio_chunk", "data": enc})
 
                     lr = workflow.last_result or {}
-                    if not transcript_sent and lr.get("transcription"):
+                    # SDK VoicePipeline does not emit STT as a stream event; use workflow result.
+                    if lr.get("transcription"):
                         await websocket.send_json(
                             {"type": "transcription", "data": lr["transcription"]}
                         )

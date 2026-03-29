@@ -46,6 +46,8 @@ class FormSessionContext:
     respondent_session: RespondentSession
     form: Form
     collected_answers: dict[str, str] = field(default_factory=dict)
+    #: At most one successful save_answer per Runner / voice workflow run.
+    save_answer_called: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +111,12 @@ def save_answer(
 
     logger.debug("save_answer called: field=%s value=%r", field_name, value)
 
+    if fctx.save_answer_called:
+        return (
+            "Error: Only one save_answer is allowed per user turn. "
+            "Do not call save_answer again. Respond with the next question only."
+        )
+
     valid_fields = {f["name"] for f in (form.fields_schema or [])}
     if valid_fields and field_name not in valid_fields:
         return f"Error: '{field_name}' is not a valid field. Valid: {', '.join(sorted(valid_fields))}"
@@ -138,6 +146,7 @@ def save_answer(
         )
     db.flush()
     fctx.collected_answers[field_name] = value.strip()
+    fctx.save_answer_called = True
 
     logger.info("save_answer SAVED: field=%s value=%r", field_name, value.strip())
 
@@ -187,19 +196,32 @@ def _build_instructions(
     if voice_mode:
         voice_note = """
 ## Voice mode — CRITICAL instructions
-You are conducting a voice interview. The user speaks their answers aloud.
+You are conducting a voice interview. The user speaks their answers aloud ONE AT A TIME.
 
-ANSWER EXTRACTION RULES:
-1. When the user speaks, their transcribed words appear as the "user" message.
-2. Extract the SUBSTANTIVE content from what the user said and pass ONLY that to save_answer.
-   Example: user says "My name is Hamza Adil" -> save_answer(field_name="full_name", value="Hamza Adil")
-   Example: user says "I think about 4 out of 5" -> save_answer(field_name="rating", value="4 out of 5")
-3. NEVER pass your own words (like "Thank you", "Great", "Got it") as the value to save_answer.
-4. If the user's message is ONLY a polite filler (e.g. "Thank you", "Okay", "Sure", "Yeah")
-   with NO actual answer content, do NOT call save_answer. Instead, acknowledge them
-   briefly and re-ask the current question.
-5. If you are unsure whether the user actually answered, ask for clarification instead of guessing.
-6. Ask exactly ONE question at a time. Wait for the user's response before moving on."""
+STRICT RULES — follow these exactly, every single turn:
+
+1. Each call to your run() handles EXACTLY ONE user utterance. You MUST call save_answer
+   at most ONCE per run. Never call save_answer more than once in the same response.
+
+2. After calling save_answer, you get one more turn to respond with a brief acknowledgment
+   and ONLY the next unanswered question. That is all you do.
+
+3. NEVER answer questions on behalf of the user. NEVER infer, guess, or extrapolate
+   answers to questions you have not yet asked. Only save what the user literally said.
+
+4. NEVER use conversation history to pre-fill or overwrite answers. Each utterance is
+   independent. Save only what the CURRENT user message contains.
+
+5. If the user's message is ONLY a polite filler (e.g. "Thank you", "Okay", "Sure",
+   "Yeah") with NO answer content, do NOT call save_answer. Acknowledge briefly
+   and re-ask the same question.
+
+6. Extract the SUBSTANTIVE content from the user's words:
+   - User says "My name is Hamza Adil" -> save_answer(field_name="full_name", value="Hamza Adil")
+   - User says "I play on PC" -> save_answer(field_name="gaming_platform", value="PC")
+   - User says "About monthly" -> save_answer(field_name="play_frequency", value="monthly")
+
+7. NEVER pass your own words as the value. NEVER pass greetings or acknowledgments."""
 
     return f"""You are a conversational form assistant. Persona: {persona}
 {voice_note}
@@ -214,11 +236,12 @@ ANSWER EXTRACTION RULES:
 {fields_desc or "No schema."}
 {progress}
 ## Rules
-1. Ask one question at a time. When the user answers, call save_answer with the field name and the user's ACTUAL words as the value, then respond naturally and ask the next question.
-2. Only save answers the user explicitly gave. Do not guess, infer, or use your own words as the value.
+1. Ask one question at a time. When the user answers, call save_answer ONCE with the field name and the user's ACTUAL words as the value, then respond briefly and ask the next unanswered question.
+2. Only save answers the user explicitly gave. Do not guess, infer, or fill in answers from context or prior turns.
 3. When save_answer says all required fields are collected, thank the user and say goodbye.
 4. Keep replies short (1-2 sentences).
-5. If the user says something like "Thank you" or "Okay" without answering the question, do NOT call save_answer. Simply acknowledge and re-ask the question."""
+5. If the user says something like "Thank you" or "Okay" without answering the question, do NOT call save_answer. Simply acknowledge and re-ask the same question.
+6. NEVER call save_answer more than once per response. NEVER pre-answer future questions."""
 
 
 # ---------------------------------------------------------------------------

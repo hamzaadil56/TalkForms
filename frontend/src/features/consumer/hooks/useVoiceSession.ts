@@ -67,6 +67,8 @@ export function useVoiceSession({
 	const pendingAudioEndRef = useRef(false);
 	const onPlaybackDoneRef = useRef<(() => void) | null>(null);
 	const firstServerAudioTurnDoneRef = useRef(false);
+	/** In-flight FileReader conversions for audio chunks; stop must wait for these. */
+	const pendingFileReadsRef = useRef(0);
 
 	const markFirstServerAudioTurnDone = useCallback(() => {
 		if (!firstServerAudioTurnDoneRef.current) {
@@ -257,6 +259,8 @@ export function useVoiceSession({
 
 	const startRecording = useCallback(async () => {
 		if (!initialAgentPlaybackDone) return;
+		if (stateRef.current !== "connected") return;
+		if (isPlayingRef.current) return;
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -265,6 +269,7 @@ export function useVoiceSession({
 			const mediaRecorder = new MediaRecorder(stream, options);
 			mediaRecorderRef.current = mediaRecorder;
 			audioChunksRef.current = [];
+			pendingFileReadsRef.current = 0;
 
 			const ctx = new AudioContext();
 			const source = ctx.createMediaStreamSource(stream);
@@ -286,18 +291,30 @@ export function useVoiceSession({
 				if (e.data.size > 0) {
 					audioChunksRef.current.push(e.data);
 
+					pendingFileReadsRef.current += 1;
 					const reader = new FileReader();
 					reader.onloadend = () => {
-						const base64 = (reader.result as string).split(",")[1];
-						wsRef.current?.send(
-							JSON.stringify({ type: "audio_chunk", data: base64 }),
-						);
+						pendingFileReadsRef.current -= 1;
+						try {
+							const base64 = (reader.result as string).split(",")[1];
+							if (base64) {
+								wsRef.current?.send(
+									JSON.stringify({ type: "audio_chunk", data: base64 }),
+								);
+							}
+						} catch {
+							// ignore
+						}
+					};
+					reader.onerror = () => {
+						pendingFileReadsRef.current -= 1;
 					};
 					reader.readAsDataURL(e.data);
 				}
 			};
 
 			mediaRecorder.start(250);
+			wsRef.current?.send(JSON.stringify({ type: "start_recording" }));
 			setState("listening");
 		} catch {
 			setError("Microphone access denied");
@@ -308,15 +325,33 @@ export function useVoiceSession({
 	const stopRecording = useCallback(() => {
 		cancelAnimationFrame(animFrameRef.current);
 		setAudioLevel(0);
-
-		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-			mediaRecorderRef.current.stop();
-			mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
-		}
-
 		setState("processing");
 
-		wsRef.current?.send(JSON.stringify({ type: "stop" }));
+		const recorder = mediaRecorderRef.current;
+		if (!recorder || recorder.state === "inactive") {
+			wsRef.current?.send(JSON.stringify({ type: "stop" }));
+			mediaRecorderRef.current = null;
+			return;
+		}
+
+		const sendStopWhenReady = () => {
+			const deadline = Date.now() + 3000;
+			const tick = () => {
+				if (pendingFileReadsRef.current <= 0 || Date.now() > deadline) {
+					wsRef.current?.send(JSON.stringify({ type: "stop" }));
+					mediaRecorderRef.current = null;
+					return;
+				}
+				setTimeout(tick, 15);
+			};
+			setTimeout(tick, 0);
+		};
+
+		recorder.onstop = () => {
+			recorder.stream.getTracks().forEach((t) => t.stop());
+			sendStopWhenReady();
+		};
+		recorder.stop();
 	}, []);
 
 	useEffect(() => {
