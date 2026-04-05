@@ -33,12 +33,6 @@ export default function HomePage() {
 					>
 						Admin Login
 					</Link>
-					<Link
-						to="/legacy/voice"
-						className="px-6 py-[9px] rounded-md font-medium text-[14px] text-text-secondary bg-bg-base border-[0.5px] border-stone-200 hover:border-stone-300 hover:text-text-primary transition-all duration-150"
-					>
-						Legacy Voice Agent
-					</Link>
 				</div>
 			</div>
 		</div>
