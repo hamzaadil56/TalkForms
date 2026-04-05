@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
 				Admin Login
 			</h1>
 			<p className="text-text-secondary mb-6">
-				Sign in to create and manage form bots.
+				Sign in to create and manage form talks.
 			</p>
 			<form className="space-y-4" onSubmit={onSubmit}>
 				<input

@@ -54,7 +54,7 @@ export default function LoginPage() {
 						Welcome back
 					</h1>
 					<p className="text-[13px] text-text-secondary mt-2">
-						Sign in to manage your form bots.
+						Sign in to manage your form talks.
 					</p>
 				</div>
 
