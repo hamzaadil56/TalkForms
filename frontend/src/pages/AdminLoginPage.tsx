@@ -24,13 +24,32 @@ export default function AdminLoginPage() {
 
 	return (
 		<div className="max-w-lg mx-auto mt-20 glass-elevated rounded-3xl p-8 border border-border/40">
-			<h1 className="text-3xl font-heading font-bold text-text-primary mb-2">Admin Login</h1>
-			<p className="text-text-secondary mb-6">Sign in to create and manage agentic forms.</p>
+			<h1 className="text-3xl font-heading font-bold text-text-primary mb-2">
+				Admin Login
+			</h1>
+			<p className="text-text-secondary mb-6">
+				Sign in to create and manage form bots.
+			</p>
 			<form className="space-y-4" onSubmit={onSubmit}>
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border text-text-primary" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border text-text-primary" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border text-text-primary"
+					value={email}
+					onChange={(e) => setEmail(e.target.value)}
+					placeholder="Email"
+				/>
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border text-text-primary"
+					type="password"
+					value={password}
+					onChange={(e) => setPassword(e.target.value)}
+					placeholder="Password"
+				/>
 				{error && <p className="text-error text-sm">{error}</p>}
-				<button className="w-full px-6 py-3 rounded-xl bg-accent-primary text-bg-primary font-semibold" disabled={loading} type="submit">
+				<button
+					className="w-full px-6 py-3 rounded-xl bg-accent-primary text-bg-primary font-semibold"
+					disabled={loading}
+					type="submit"
+				>
 					{loading ? "Signing in..." : "Sign in"}
 				</button>
 			</form>

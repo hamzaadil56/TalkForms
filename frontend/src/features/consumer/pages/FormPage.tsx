@@ -26,15 +26,20 @@ export default function FormPage() {
 				<div className="flex items-center gap-2 mb-2">
 					<span className="w-2 h-2 rounded-full bg-forest-500 flex-shrink-0" />
 					<span className="text-[11px] text-text-tertiary font-medium uppercase tracking-widest">
-						AgentForms
+						TalkForms
 					</span>
 				</div>
 				<h1 className="font-heading font-semibold text-[28px] text-text-primary leading-tight">
-					{slug ? slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Agentic Form"}
+					{slug
+						? slug
+								.replace(/-/g, " ")
+								.replace(/\b\w/g, (c) => c.toUpperCase())
+						: "Agentic Form"}
 				</h1>
 				{slug && (
 					<p className="text-[15px] text-text-secondary mt-1 leading-relaxed">
-						Answer a few questions through a conversational experience.
+						Answer a few questions through a conversational
+						experience.
 					</p>
 				)}
 			</div>
@@ -63,8 +68,18 @@ export default function FormPage() {
 								}`}
 							>
 								<span className="flex items-center gap-2">
-									<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-										<path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+									<svg
+										className="w-4 h-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										strokeWidth={1.5}
+										stroke="currentColor"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+										/>
 									</svg>
 									Chat
 								</span>
@@ -78,8 +93,18 @@ export default function FormPage() {
 								}`}
 							>
 								<span className="flex items-center gap-2">
-									<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-										<path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+									<svg
+										className="w-4 h-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										strokeWidth={1.5}
+										stroke="currentColor"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+										/>
 									</svg>
 									Voice
 								</span>

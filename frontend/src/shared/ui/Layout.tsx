@@ -26,12 +26,20 @@ export function AdminShell({ children, email, onLogout }: AdminShellProps) {
 				{/* Logo */}
 				<div className="px-3 pb-5 flex items-center gap-2.5">
 					<div className="w-7 h-7 rounded-md bg-forest-500 grid place-items-center flex-shrink-0">
-						<svg width="14" height="14" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+						<svg
+							width="14"
+							height="14"
+							fill="none"
+							stroke="#fff"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
 							<path d="M12 2H4a2 2 0 0 0-2 2v12l4-4h6a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z" />
 						</svg>
 					</div>
 					<span className="font-heading text-[15px] font-semibold text-text-primary">
-						AgentForms
+						TalkForms
 					</span>
 				</div>
 
@@ -64,7 +72,9 @@ export function AdminShell({ children, email, onLogout }: AdminShellProps) {
 				{/* User / Logout */}
 				<div className="px-4 pt-4 border-t border-stone-100">
 					{email && (
-						<p className="text-[11px] text-text-tertiary truncate mb-2 font-mono">{email}</p>
+						<p className="text-[11px] text-text-tertiary truncate mb-2 font-mono">
+							{email}
+						</p>
 					)}
 					{onLogout && (
 						<button
@@ -97,11 +107,21 @@ interface PageHeaderProps {
 	actions?: ReactNode;
 }
 
-export function PageHeader({ title, subtitle, backTo, backLabel, actions }: PageHeaderProps) {
+export function PageHeader({
+	title,
+	subtitle,
+	backTo,
+	backLabel,
+	actions,
+}: PageHeaderProps) {
 	return (
 		<header
 			className="sticky top-0 z-20 px-8 py-5 border-b border-stone-100 flex items-center justify-between gap-4"
-			style={{ background: "rgba(247,245,240,0.85)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
+			style={{
+				background: "rgba(247,245,240,0.85)",
+				backdropFilter: "blur(16px)",
+				WebkitBackdropFilter: "blur(16px)",
+			}}
 		>
 			<div>
 				{backTo && (
@@ -116,7 +136,9 @@ export function PageHeader({ title, subtitle, backTo, backLabel, actions }: Page
 					{title}
 				</h1>
 				{subtitle && (
-					<p className="text-[13px] text-text-secondary mt-0.5">{subtitle}</p>
+					<p className="text-[13px] text-text-secondary mt-0.5">
+						{subtitle}
+					</p>
 				)}
 			</div>
 			{actions && <div className="flex gap-3">{actions}</div>}
@@ -153,26 +175,57 @@ export function PageLayout({ children, maxWidth = "xl" }: PageLayoutProps) {
 	);
 }
 
-export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+export function EmptyState({
+	title,
+	description,
+	action,
+}: {
+	title: string;
+	description: string;
+	action?: ReactNode;
+}) {
 	return (
 		<div className="flex flex-col items-center justify-center py-20 px-8 text-center gap-3">
 			<div className="w-12 h-12 bg-forest-100 rounded-lg grid place-items-center mb-2">
-				<svg className="w-6 h-6 text-forest-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-					<path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+				<svg
+					className="w-6 h-6 text-forest-500"
+					fill="none"
+					viewBox="0 0 24 24"
+					strokeWidth={1.5}
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+					/>
 				</svg>
 			</div>
-			<h2 className="font-heading font-medium text-[18px] text-text-primary">{title}</h2>
-			<p className="text-[13px] text-text-secondary max-w-[260px] leading-relaxed">{description}</p>
+			<h2 className="font-heading font-medium text-[18px] text-text-primary">
+				{title}
+			</h2>
+			<p className="text-[13px] text-text-secondary max-w-[260px] leading-relaxed">
+				{description}
+			</p>
 			{action}
 		</div>
 	);
 }
 
-export function ErrorDisplay({ message, retry }: { message: string; retry?: () => void }) {
+export function ErrorDisplay({
+	message,
+	retry,
+}: {
+	message: string;
+	retry?: () => void;
+}) {
 	return (
 		<div
 			className="rounded-lg p-8 border text-center"
-			style={{ background: "var(--error-bg)", borderColor: "var(--error-border)" }}
+			style={{
+				background: "var(--error-bg)",
+				borderColor: "var(--error-border)",
+			}}
 		>
 			<p className="text-error mb-4 text-sm">{message}</p>
 			{retry && (
@@ -195,7 +248,10 @@ function DashboardIcon({ active }: { active?: boolean }) {
 	return (
 		<svg
 			className={`w-[15px] h-[15px] flex-shrink-0 transition-colors ${active ? "text-forest-500" : "text-text-tertiary"}`}
-			fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"
+			fill="none"
+			viewBox="0 0 24 24"
+			strokeWidth={1.5}
+			stroke="currentColor"
 		>
 			<rect x="3" y="3" width="7" height="7" />
 			<rect x="14" y="3" width="7" height="7" />
@@ -209,9 +265,16 @@ function PlusIcon({ active }: { active?: boolean }) {
 	return (
 		<svg
 			className={`w-[15px] h-[15px] flex-shrink-0 transition-colors ${active ? "text-forest-500" : "text-text-tertiary"}`}
-			fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"
+			fill="none"
+			viewBox="0 0 24 24"
+			strokeWidth={1.5}
+			stroke="currentColor"
 		>
-			<path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+			<path
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				d="M12 4.5v15m7.5-7.5h-15"
+			/>
 		</svg>
 	);
 }

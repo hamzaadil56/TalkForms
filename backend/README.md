@@ -4,8 +4,8 @@ FastAPI backend for the Voice Agent web interface. Provides REST API and WebSock
 
 ## Prerequisites
 
--   Python 3.10+
--   [uv](https://docs.astral.sh/uv/) (package manager)
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) (package manager)
 
 Install uv if needed:
 
@@ -16,32 +16,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Setup
 
 1. Clone the repository (backend must live inside the repo so the `voiceagent` path dependency resolves).
-
 2. From the **backend** directory, create the virtual environment and install dependencies:
-
-    ```bash
+  ```bash
     cd backend
     uv sync
-    ```
-
+  ```
     For development tools (pytest, black, ruff):
-
-    ```bash
-    uv sync --extra dev
-    ```
-
 3. Environment variables: place a `.env` file in the **backend** directory (or ensure the process runs with the correct working directory so `.env` is found). Required for the voice pipeline:
-
-    - `GROQ_API_KEY` – Groq API key (STT/LLM)
+  - `GROQ_API_KEY` – Groq API key (STT/LLM)
     - `OPENAI_API_KEY` – OpenAI API key (TTS, if used)
     - Optional: `HOST`, `PORT`, `RELOAD`; for CORS, configure as needed (see `BackendSettings` in `config.py`).
 
 ## Architecture
 
--   **FastAPI** app with lifespan startup/shutdown.
--   **REST** under `/api`: health, settings, spin (TTS wake), etc.
--   **WebSocket** at `/ws`: real-time voice; client sends audio (WebM/WAV), receives PCM stream and transcripts.
--   **VoiceService** wraps the root **voiceagent** package: `VoiceAgent` (OpenAI Agents SDK voice pipeline) for STT → LLM → TTS. Audio is converted and streamed as PCM to the frontend.
+- **FastAPI** app with lifespan startup/shutdown.
+- **REST** under `/api`: health, settings, spin (TTS wake), etc.
+- **WebSocket** at `/ws`: real-time voice; client sends audio (WebM/WAV), receives PCM stream and transcripts.
+- **VoiceService** wraps the root **voiceagent** package: `VoiceAgent` (OpenAI Agents SDK voice pipeline) for STT → LLM → TTS. Audio is converted and streamed as PCM to the frontend.
 
 ```mermaid
 flowchart LR
@@ -54,6 +45,8 @@ flowchart LR
   VoiceService --> VoiceAgent
   VoiceAgent -->|STT/LLM/TTS| VoiceService
 ```
+
+
 
 ## Build and run (deployment)
 
@@ -102,13 +95,12 @@ uv run python main.py
 **Build Docker Image** (run from the repo root):
 
 ```bash
-docker buildx build -f backend/Dockerfile -t hamzaadil/voiceagent-backend:latest .
+docker buildx build -f backend/Dockerfile -t hamzaadil/voiceagent-backend:latest /backend
 ```
-
-> The build context must be the repo root (`.`) so the `backend` package resolves correctly inside the image.
 
 **Push to Docker Hub:**
 
 ```bash
 docker push hamzaadil/voiceagent-backend:latest
 ```
+

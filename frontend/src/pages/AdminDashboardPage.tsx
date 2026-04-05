@@ -11,13 +11,36 @@ import {
 	publishForm,
 } from "../lib/agenticApi";
 
-type CreatedForm = { id: string; slug: string; version_id: string; status: string };
+type CreatedForm = {
+	id: string;
+	slug: string;
+	version_id: string;
+	status: string;
+};
 
 const starterNodes: GraphNodeIn[] = [
-	{ key: "full_name", prompt: "What is your full name?", node_type: "question", required: true, validation: {} },
-	{ key: "email", prompt: "What is your email address?", node_type: "question", required: true, validation: { regex: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" } },
-	{ key: "goal", prompt: "What are you looking to achieve?", node_type: "question", required: true, validation: {} },
-] ;
+	{
+		key: "full_name",
+		prompt: "What is your full name?",
+		node_type: "question",
+		required: true,
+		validation: {},
+	},
+	{
+		key: "email",
+		prompt: "What is your email address?",
+		node_type: "question",
+		required: true,
+		validation: { regex: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" },
+	},
+	{
+		key: "goal",
+		prompt: "What are you looking to achieve?",
+		node_type: "question",
+		required: true,
+		validation: {},
+	},
+];
 
 const starterEdges: GraphEdgeIn[] = [
 	{ from_key: "full_name", to_key: "email" },
@@ -30,13 +53,21 @@ export default function AdminDashboardPage() {
 	const [orgId, setOrgId] = useState<string>("");
 	const [createdForm, setCreatedForm] = useState<CreatedForm | null>(null);
 	const [formIdForData, setFormIdForData] = useState("");
-	const [submissions, setSubmissions] = useState<Array<{ submission_id: string; answers: Record<string, string> }>>([]);
+	const [submissions, setSubmissions] = useState<
+		Array<{ submission_id: string; answers: Record<string, string> }>
+	>([]);
 	const [status, setStatus] = useState<string>("");
 
 	const [title, setTitle] = useState("Lead Qualification Form");
-	const [description, setDescription] = useState("Conversational lead intake form");
-	const [slug, setSlug] = useState(`lead-intake-${Math.floor(Math.random() * 1000)}`);
-	const [persona, setPersona] = useState("Friendly, concise, and professional");
+	const [description, setDescription] = useState(
+		"Conversational lead intake form",
+	);
+	const [slug, setSlug] = useState(
+		`lead-intake-${Math.floor(Math.random() * 1000)}`,
+	);
+	const [persona, setPersona] = useState(
+		"Friendly, concise, and professional",
+	);
 
 	useEffect(() => {
 		if (!token) return;
@@ -54,7 +85,11 @@ export default function AdminDashboardPage() {
 	}, [createdForm]);
 
 	if (!token) {
-		return <div className="max-w-xl mx-auto mt-20 text-center text-text-primary">Please login at <code>/admin/login</code>.</div>;
+		return (
+			<div className="max-w-xl mx-auto mt-20 text-center text-text-primary">
+				Please login at <code>/admin/login</code>.
+			</div>
+		);
 	}
 
 	const handleCreate = async (event: FormEvent) => {
@@ -79,7 +114,9 @@ export default function AdminDashboardPage() {
 			setFormIdForData(form.id);
 			setStatus(`Form created: ${form.id}`);
 		} catch (err) {
-			setStatus(err instanceof Error ? err.message : "Failed to create form");
+			setStatus(
+				err instanceof Error ? err.message : "Failed to create form",
+			);
 		}
 	};
 
@@ -102,7 +139,11 @@ export default function AdminDashboardPage() {
 			setSubmissions(result.rows);
 			setStatus(`Loaded ${result.total} submissions`);
 		} catch (err) {
-			setStatus(err instanceof Error ? err.message : "Failed loading submissions");
+			setStatus(
+				err instanceof Error
+					? err.message
+					: "Failed loading submissions",
+			);
 		}
 	};
 
@@ -111,7 +152,9 @@ export default function AdminDashboardPage() {
 		setStatus("Exporting CSV...");
 		try {
 			const result = await exportCsv(token, formIdForData);
-			setStatus(`Export ${result.export_id} created (${result.row_count} rows). ${result.file_path || ""}`);
+			setStatus(
+				`Export ${result.export_id} created (${result.row_count} rows). ${result.file_path || ""}`,
+			);
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "Export failed");
 		}
@@ -120,34 +163,110 @@ export default function AdminDashboardPage() {
 	return (
 		<div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
 			<div className="flex items-center justify-between">
-				<h1 className="text-3xl font-heading text-text-primary">Agentic Forms Admin</h1>
-				<button onClick={() => { clearAdminToken(); window.location.href = "/admin/login"; }} className="px-4 py-2 rounded-lg glass border border-border">Logout</button>
+				<h1 className="text-3xl font-heading text-text-primary">
+					TalkForms Admin
+				</h1>
+				<button
+					onClick={() => {
+						clearAdminToken();
+						window.location.href = "/admin/login";
+					}}
+					className="px-4 py-2 rounded-lg glass border border-border"
+				>
+					Logout
+				</button>
 			</div>
 
-			<form onSubmit={handleCreate} className="glass-elevated rounded-2xl p-6 border border-border/40 space-y-4">
-				<h2 className="text-xl font-heading text-text-primary">Create Form</h2>
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="slug" />
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border" value={persona} onChange={(e) => setPersona(e.target.value)} placeholder="Persona" />
-				<button className="px-5 py-3 rounded-xl bg-accent-primary text-bg-primary font-semibold" type="submit">Create Draft Form</button>
+			<form
+				onSubmit={handleCreate}
+				className="glass-elevated rounded-2xl p-6 border border-border/40 space-y-4"
+			>
+				<h2 className="text-xl font-heading text-text-primary">
+					Create Form
+				</h2>
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border"
+					value={title}
+					onChange={(e) => setTitle(e.target.value)}
+					placeholder="Title"
+				/>
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border"
+					value={description}
+					onChange={(e) => setDescription(e.target.value)}
+					placeholder="Description"
+				/>
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border"
+					value={slug}
+					onChange={(e) => setSlug(e.target.value)}
+					placeholder="slug"
+				/>
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border"
+					value={persona}
+					onChange={(e) => setPersona(e.target.value)}
+					placeholder="Persona"
+				/>
+				<button
+					className="px-5 py-3 rounded-xl bg-accent-primary text-bg-primary font-semibold"
+					type="submit"
+				>
+					Create Draft Form
+				</button>
 			</form>
 
 			{createdForm && (
 				<div className="glass rounded-2xl p-6 border border-border/40 space-y-3">
-					<p className="text-text-primary">Form ID: <code>{createdForm.id}</code></p>
-					<p className="text-text-primary">Slug: <code>{createdForm.slug}</code></p>
-					<button onClick={handlePublish} className="px-5 py-3 rounded-xl bg-accent-secondary text-bg-primary font-semibold">Publish Form</button>
-					{consumerLink && <p className="text-text-secondary">Consumer Link: <a className="text-accent-primary underline" href={consumerLink}>{consumerLink}</a></p>}
+					<p className="text-text-primary">
+						Form ID: <code>{createdForm.id}</code>
+					</p>
+					<p className="text-text-primary">
+						Slug: <code>{createdForm.slug}</code>
+					</p>
+					<button
+						onClick={handlePublish}
+						className="px-5 py-3 rounded-xl bg-accent-secondary text-bg-primary font-semibold"
+					>
+						Publish Form
+					</button>
+					{consumerLink && (
+						<p className="text-text-secondary">
+							Consumer Link:{" "}
+							<a
+								className="text-accent-primary underline"
+								href={consumerLink}
+							>
+								{consumerLink}
+							</a>
+						</p>
+					)}
 				</div>
 			)}
 
 			<div className="glass rounded-2xl p-6 border border-border/40 space-y-3">
-				<h2 className="text-xl font-heading text-text-primary">Submissions & Export</h2>
-				<input className="w-full px-4 py-3 glass rounded-xl border border-border" value={formIdForData} onChange={(e) => setFormIdForData(e.target.value)} placeholder="Form ID" />
+				<h2 className="text-xl font-heading text-text-primary">
+					Submissions & Export
+				</h2>
+				<input
+					className="w-full px-4 py-3 glass rounded-xl border border-border"
+					value={formIdForData}
+					onChange={(e) => setFormIdForData(e.target.value)}
+					placeholder="Form ID"
+				/>
 				<div className="flex gap-3">
-					<button onClick={handleFetchSubmissions} className="px-4 py-2 rounded-lg bg-surface text-text-primary">Load Submissions</button>
-					<button onClick={handleExport} className="px-4 py-2 rounded-lg bg-surface text-text-primary">Export CSV</button>
+					<button
+						onClick={handleFetchSubmissions}
+						className="px-4 py-2 rounded-lg bg-surface text-text-primary"
+					>
+						Load Submissions
+					</button>
+					<button
+						onClick={handleExport}
+						className="px-4 py-2 rounded-lg bg-surface text-text-primary"
+					>
+						Export CSV
+					</button>
 				</div>
 				{submissions.length > 0 && (
 					<div className="max-h-64 overflow-auto text-sm text-text-secondary">

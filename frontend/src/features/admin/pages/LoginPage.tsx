@@ -38,7 +38,15 @@ export default function LoginPage() {
 				{/* Logo */}
 				<div className="text-center mb-8">
 					<div className="w-12 h-12 rounded-lg bg-forest-500 grid place-items-center mx-auto mb-4 text-white shadow-forest">
-						<svg width="24" height="24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+						<svg
+							width="24"
+							height="24"
+							fill="none"
+							stroke="#fff"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
 							<path d="M20 2H8a4 4 0 0 0-4 4v20l8-8h8a4 4 0 0 0 4-4V6a4 4 0 0 0-4-4z" />
 						</svg>
 					</div>
@@ -46,13 +54,16 @@ export default function LoginPage() {
 						Welcome back
 					</h1>
 					<p className="text-[13px] text-text-secondary mt-2">
-						Sign in to manage your agentic forms.
+						Sign in to manage your form bots.
 					</p>
 				</div>
 
 				<form className="space-y-4" onSubmit={onSubmit}>
 					<div>
-						<label htmlFor="email" className="block text-[13px] font-medium text-text-primary mb-[5px]">
+						<label
+							htmlFor="email"
+							className="block text-[13px] font-medium text-text-primary mb-[5px]"
+						>
 							Email
 						</label>
 						<input
@@ -66,7 +77,10 @@ export default function LoginPage() {
 						/>
 					</div>
 					<div>
-						<label htmlFor="password" className="block text-[13px] font-medium text-text-primary mb-[5px]">
+						<label
+							htmlFor="password"
+							className="block text-[13px] font-medium text-text-primary mb-[5px]"
+						>
 							Password
 						</label>
 						<input

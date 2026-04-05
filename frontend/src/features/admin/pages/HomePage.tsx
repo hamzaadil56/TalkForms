@@ -6,15 +6,24 @@ export default function HomePage() {
 			<div className="text-center space-y-8 animate-fade-up">
 				<div>
 					<div className="w-14 h-14 rounded-lg bg-forest-500 grid place-items-center mx-auto mb-6 text-white shadow-forest">
-						<svg width="28" height="28" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+						<svg
+							width="28"
+							height="28"
+							fill="none"
+							stroke="#fff"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
 							<path d="M20 2H8a4 4 0 0 0-4 4v20l8-8h8a4 4 0 0 0 4-4V6a4 4 0 0 0-4-4z" />
 						</svg>
 					</div>
 					<h1 className="font-heading font-semibold text-[48px] text-text-primary leading-[1.1] tracking-tight">
-						AgentForms
+						TalkForms
 					</h1>
 					<p className="text-text-secondary text-[17px] mt-3 max-w-md mx-auto leading-relaxed">
-						Admins craft intelligent form journeys. Consumers experience them through natural conversation.
+						Admins craft intelligent form journeys. Consumers
+						experience them through natural conversation.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-3 justify-center">
