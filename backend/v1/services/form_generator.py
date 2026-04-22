@@ -1,8 +1,5 @@
-"""Form generation service — parses admin natural language prompt into
-a structured form definition using Groq (Llama 3.3 70B).
-
-This does NOT use the Agents SDK (no tools needed). It's a simple
-LLM call that returns structured JSON.
+"""Form generation — parses an admin natural language prompt into a structured
+form definition using Groq Llama (direct OpenAI-compatible client, no LiteLLM).
 """
 
 from __future__ import annotations
@@ -12,11 +9,14 @@ import logging
 import os
 from dataclasses import dataclass
 
-import litellm
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
-GENERATION_SYSTEM_PROMPT = """You are an AI form architect. Given a user's description of what information they want to collect, you produce a structured form definition as JSON.
+_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+_MODEL = "llama-3.3-70b-versatile"
+
+_SYSTEM_PROMPT = """You are an AI form architect. Given a user's description of what information they want to collect, you produce a structured form definition as JSON.
 
 Your output must be valid JSON with this exact structure:
 {
@@ -35,12 +35,10 @@ Your output must be valid JSON with this exact structure:
 
 Rules:
 1. Field names must be in snake_case (e.g. full_name, email_address).
-2. Include 'type' based on the data (email for emails, phone for phone numbers, number for numeric values, etc.).
-3. Mark fields as required=true unless the user explicitly says they're optional.
-4. The system_prompt should be detailed instructions for a conversational AI agent — it should describe the persona, tone, what to collect, and any special handling.
-5. Generate sensible defaults if the user's description is vague.
-6. Output ONLY the JSON object, no markdown formatting, no explanation.
-"""
+2. Use the correct type for each field (email, phone, number, etc.).
+3. Mark fields as required=true unless the user explicitly says optional.
+4. The system_prompt should be detailed instructions for a conversational AI agent.
+5. Output ONLY the JSON object — no markdown, no explanation."""
 
 
 @dataclass
@@ -60,41 +58,24 @@ class GeneratedForm:
 
 
 async def generate_form_from_prompt(prompt: str) -> GeneratedForm:
-    """Use Groq LLM to generate a structured form definition from a natural language prompt.
-
-    Args:
-        prompt: Admin's natural language description of what to collect.
-
-    Returns:
-        GeneratedForm with title, description, system_prompt, and fields.
-
-    Raises:
-        ValueError: If the LLM response cannot be parsed.
-    """
     api_key = os.getenv("GROQ_API_KEY", "")
     if not api_key:
         raise ValueError("GROQ_API_KEY is required for form generation")
 
-    response = await litellm.acompletion(
-        model="groq/llama-3.3-70b-versatile",
-        api_key=api_key,
+    client = AsyncOpenAI(api_key=api_key, base_url=_GROQ_BASE_URL)
+    response = await client.chat.completions.create(
+        model=_MODEL,
         messages=[
-            {"role": "system", "content": GENERATION_SYSTEM_PROMPT},
+            {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.3,  # Lower temp for more structured output
+        temperature=0.3,
         max_tokens=2000,
     )
 
-    raw = response.choices[0].message.content or ""
-    raw = raw.strip()
-
-    # Strip markdown code fences if present
+    raw = (response.choices[0].message.content or "").strip()
     if raw.startswith("```"):
-        lines = raw.split("\n")
-        # Remove first and last lines (code fence markers)
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        raw = "\n".join(lines)
+        raw = "\n".join(l for l in raw.split("\n") if not l.strip().startswith("```"))
 
     try:
         data = json.loads(raw)
@@ -102,20 +83,17 @@ async def generate_form_from_prompt(prompt: str) -> GeneratedForm:
         logger.error("Failed to parse LLM response as JSON: %s\nRaw: %s", exc, raw[:500])
         raise ValueError(f"Failed to parse form generation response: {exc}") from exc
 
-    fields = []
-    for f in data.get("fields", []):
-        fields.append(
+    return GeneratedForm(
+        title=data.get("title", "Untitled Form"),
+        description=data.get("description", ""),
+        system_prompt=data.get("system_prompt", ""),
+        fields=[
             GeneratedFormField(
                 name=f.get("name", "unknown"),
                 type=f.get("type", "text"),
                 required=f.get("required", True),
                 description=f.get("description", ""),
             )
-        )
-
-    return GeneratedForm(
-        title=data.get("title", "Untitled Form"),
-        description=data.get("description", ""),
-        system_prompt=data.get("system_prompt", ""),
-        fields=fields,
+            for f in data.get("fields", [])
+        ],
     )

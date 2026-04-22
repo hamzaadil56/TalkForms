@@ -61,11 +61,9 @@ async def create_public_session(
 
     respondent_session = RespondentSession(
         form_id=form.id,
-        form_version_id=None,  # Agentic forms don't use form versions
         channel=payload.channel,
         locale=payload.locale,
         status="active",
-        current_node_id=None,  # No graph nodes in agentic mode
         metadata_json=payload.metadata,
     )
     db.add(respondent_session)
@@ -219,7 +217,6 @@ def complete_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     respondent_session.status = "completed"
-    respondent_session.current_node_id = None
 
     submission = db.execute(
         select(Submission).where(Submission.session_id == session_id)

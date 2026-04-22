@@ -240,19 +240,3 @@ class TokenRefreshResponse(BaseModel):
     token_type: str = "bearer"
 
 
-# ---------------------------------------------------------------------------
-# Legacy schemas (kept for backward compatibility)
-# ---------------------------------------------------------------------------
-
-class GraphNodeIn(BaseModel):
-    key: str
-    prompt: str
-    node_type: Literal["question", "statement"] = "question"
-    required: bool = True
-    validation: dict[str, Any] = Field(default_factory=dict)
-
-
-class GraphEdgeIn(BaseModel):
-    from_key: str
-    to_key: str | None = None
-    condition: dict[str, Any] | None = None

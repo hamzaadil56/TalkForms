@@ -1,7 +1,6 @@
 """Agentic Forms engine using OpenAI Agents SDK with function calling.
 
-Uses Groq Llama via LiteLLM for natural conversation and the save_answer tool
-to persist form data. Requires GROQ_API_KEY.
+Uses Groq Llama via a direct OpenAI-compatible client (no LiteLLM).
 """
 
 from __future__ import annotations
@@ -12,8 +11,9 @@ import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
+from openai import AsyncOpenAI
 from agents import Agent, ModelSettings, Runner, function_tool, set_tracing_disabled
-from agents.extensions.models.litellm_model import LitellmModel
+from agents.extensions.models.openai_chatcompletions import OpenAIChatCompletionsModel
 from agents import RunContextWrapper
 from agents.stream_events import RawResponsesStreamEvent
 from sqlalchemy import select
@@ -26,14 +26,8 @@ set_tracing_disabled(True)
 
 logger = logging.getLogger(__name__)
 
-MODEL = "groq/llama-3.3-70b-versatile"
-
-
-def _supports_function_calling() -> bool:
-    try:
-        return bool(__import__("litellm").supports_function_calling(MODEL))
-    except Exception:
-        return False
+MODEL = "llama-3.3-70b-versatile"
+_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +150,6 @@ def save_answer(
 
     if not missing_required:
         session_obj.status = "completed"
-        session_obj.current_node_id = None
         existing_sub = db.execute(select(Submission).where(Submission.session_id == session_obj.id)).scalar_one_or_none()
         if not existing_sub:
             db.add(Submission(form_id=form.id, session_id=session_obj.id, status="completed"))
@@ -248,9 +241,12 @@ STRICT RULES — follow these exactly, every single turn:
 # Agent factory
 # ---------------------------------------------------------------------------
 
-def _get_llm() -> LitellmModel:
-    api_key = os.getenv("GROQ_API_KEY", "")
-    return LitellmModel(model=MODEL, api_key=api_key)
+def _get_llm() -> OpenAIChatCompletionsModel:
+    client = AsyncOpenAI(
+        api_key=os.getenv("GROQ_API_KEY", ""),
+        base_url=_GROQ_BASE_URL,
+    )
+    return OpenAIChatCompletionsModel(model=MODEL, openai_client=client)
 
 
 def build_form_agent(
@@ -258,8 +254,6 @@ def build_form_agent(
     collected_answers: dict[str, str] | None = None,
     voice_mode: bool = False,
 ) -> Agent[FormSessionContext]:
-    if not _supports_function_calling():
-        logger.warning("Model %s does not support function calling; tool calls may fail.", MODEL)
     instructions = _build_instructions(form, collected_answers=collected_answers, voice_mode=voice_mode)
     return Agent(
         name=f"FormAgent-{form.slug}",

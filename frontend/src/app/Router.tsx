@@ -8,7 +8,6 @@ const DashboardPage = lazy(() => import("../features/admin/pages/DashboardPage")
 const FormEditorPage = lazy(() => import("../features/admin/pages/FormEditorPage"));
 const SubmissionsPage = lazy(() => import("../features/admin/pages/SubmissionsPage"));
 const FormPage = lazy(() => import("../features/consumer/pages/FormPage"));
-const LegacyVoicePage = lazy(() => import("../features/legacy-voice/pages/LegacyVoicePage"));
 
 function PageLoader() {
 	return (
@@ -61,7 +60,6 @@ export function AppRouter() {
 					</Route>
 
 					<Route path="/f/:slug" element={<FormPage />} />
-					<Route path="/legacy/voice" element={<LegacyVoicePage />} />
 					<Route path="*" element={<Navigate to="/" replace />} />
 				</Routes>
 			</Suspense>

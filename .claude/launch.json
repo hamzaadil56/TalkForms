@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend (Vite)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["frontend/node_modules/vite/bin/vite.js", "--port", "5173"],
+      "cwd": ".",
+      "port": 5173
+    },
+    {
+      "name": "Backend (Uvicorn)",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "cwd": "backend",
+      "port": 8000
+    }
+  ]
+}

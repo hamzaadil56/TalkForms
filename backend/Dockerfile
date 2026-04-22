@@ -1,30 +1,23 @@
-# Voice Agent Backend - Production image for VPS deployment
-# Build from repo root:  docker build -f backend/Dockerfile .
 FROM python:3.12-slim-bookworm
 
-# ffmpeg: WebM → WAV for browser mic audio
+# ffmpeg required for WebM → WAV audio conversion
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user (non-root)
 RUN adduser --disabled-password --gecos "" appuser
+
+# Copy backend source into /app — this IS the working directory
+COPY . /app
 
 WORKDIR /app
 
-# Copy backend into /app/backend so "backend" package resolves with PYTHONPATH=/app
-COPY . /app/backend
+RUN pip install --no-cache-dir -r requirements.txt
 
-ENV PYTHONPATH=/app \
-    PYTHONUNBUFFERED=1
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
-
-# Switch to non-root user
 USER appuser
 
 EXPOSE 8000
 
-# Production: no reload; bind to 0.0.0.0 for external access
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run as "main:app" from /app (the backend directory itself)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

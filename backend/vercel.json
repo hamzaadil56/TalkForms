@@ -1,5 +1,0 @@
-{
-	"installCommand": "pip install -r requirements.txt --break-system-packages",
-	"buildCommand": "pip install -r requirements.txt --break-system-packages && python -c \"from main import app; print('App loaded:', getattr(app, 'title', 'Voice Agent API'))\"",
-	"framework": "fastapi"
-}
