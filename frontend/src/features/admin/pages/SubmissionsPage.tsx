@@ -1,41 +1,30 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../../app/AuthProvider";
-import { exportCsv, fetchSubmissions } from "../api/adminApi";
+import { useExportCsv, useSubmissions } from "../hooks/useAdminQueries";
 import { SubmissionTable } from "../components/SubmissionTable";
 import { AdminShell, EmptyState, PageBody, PageHeader } from "../../../shared/ui/Layout";
-import type { SubmissionRow } from "../../../shared/types/api";
 
 export default function SubmissionsPage() {
 	const { formId } = useParams<{ formId: string }>();
 	const { admin, logout } = useAuth();
 	const navigate = useNavigate();
-	const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [exporting, setExporting] = useState(false);
-	const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (!formId) return;
-		setLoading(true);
-		fetchSubmissions(formId)
-			.then((res) => setSubmissions(res.rows))
-			.catch((err) => setError(err.message))
-			.finally(() => setLoading(false));
-	}, [formId]);
+	const { data, isLoading: loading, error: queryError } = useSubmissions(formId);
+	const submissions = data?.rows ?? [];
+	const error = queryError ? (queryError as Error).message : null;
+
+	const exportMutation = useExportCsv();
+	const [exportStatus, setExportStatus] = useState<string | null>(null);
 
 	const handleExport = async () => {
 		if (!formId) return;
-		setExporting(true);
 		setExportStatus(null);
 		try {
-			const res = await exportCsv(formId);
-			setExportStatus(`Export created: ${res.row_count} rows`);
+			await exportMutation.mutateAsync(formId);
+			setExportStatus("CSV downloaded successfully");
 		} catch (err) {
 			setExportStatus(err instanceof Error ? err.message : "Export failed");
-		} finally {
-			setExporting(false);
 		}
 	};
 
@@ -47,16 +36,27 @@ export default function SubmissionsPage() {
 				backTo="/admin"
 				backLabel="Dashboard"
 				actions={
-					<button
-						onClick={handleExport}
-						disabled={exporting || submissions.length === 0}
-						className="px-5 py-[9px] rounded-md font-medium text-[13px] text-white bg-forest-500 hover:bg-forest-600 transition-all duration-150 disabled:opacity-50 shadow-forest inline-flex items-center gap-1.5"
-					>
-						<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-							<path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-						</svg>
-						{exporting ? "Exporting..." : "Export CSV"}
-					</button>
+					<div className="flex items-center gap-2">
+						<Link
+							to={`/admin/forms/${formId}/analytics`}
+							className="px-4 py-[9px] rounded-md font-medium text-[13px] text-text-secondary bg-white border border-stone-200 hover:bg-stone-50 transition-all duration-150 inline-flex items-center gap-1.5"
+						>
+							<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+							</svg>
+							View Insights
+						</Link>
+						<button
+							onClick={handleExport}
+							disabled={exportMutation.isPending || submissions.length === 0}
+							className="px-4 py-[9px] rounded-md font-medium text-[13px] text-white bg-forest-500 hover:bg-forest-600 transition-all duration-150 disabled:opacity-50 shadow-forest inline-flex items-center gap-1.5"
+						>
+							<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+							</svg>
+							{exportMutation.isPending ? "Exporting..." : "Export CSV"}
+						</button>
+					</div>
 				}
 			/>
 			<PageBody>

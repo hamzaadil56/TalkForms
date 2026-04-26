@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  backend:
+    image: ${DOCKERHUB_USERNAME:-hamzaadil}/voiceagent-backend:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-}
+      STRIPE_BUSINESS_PRICE_ID: ${STRIPE_BUSINESS_PRICE_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-TalkForms <noreply@talkforms.io>}
+      FRONTEND_URL: ${FRONTEND_URL:-https://app.talkforms.io}
+      AGENTIC_DEFAULT_ORG_NAME: ${AGENTIC_DEFAULT_ORG_NAME:-Default Workspace}
+      AGENTIC_ADMIN_EMAIL: ${AGENTIC_ADMIN_EMAIL:-admin@example.com}
+      AGENTIC_ADMIN_PASSWORD: ${AGENTIC_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - exports:/tmp/agentic_exports
+
+volumes:
+  exports:
