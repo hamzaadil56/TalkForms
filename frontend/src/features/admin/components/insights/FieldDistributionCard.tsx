@@ -48,20 +48,24 @@ function FieldChart({ dist }: { dist: FieldDistribution }) {
 export function FieldDistributionCard({
 	dist,
 	aiInsight,
+	showHeader = false,
 }: {
 	dist: FieldDistribution;
 	aiInsight?: FieldAIInsight;
+	showHeader?: boolean;
 }) {
 	const typeBadge = TYPE_LABELS[dist.field_type] ?? dist.field_type;
 
 	return (
-		<div className="rounded-xl border border-stone-200 bg-white shadow-sm p-5">
-			<div className="flex items-center gap-2 mb-4">
-				<h3 className="text-[14px] font-semibold text-text-primary">{dist.field_name}</h3>
-				<span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 uppercase tracking-wider">
-					{typeBadge}
-				</span>
-			</div>
+		<div>
+			{showHeader && (
+				<div className="flex items-center gap-2 mb-4">
+					<h3 className="text-[14px] font-semibold text-text-primary">{dist.field_name}</h3>
+					<span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 uppercase tracking-wider">
+						{typeBadge}
+					</span>
+				</div>
+			)}
 
 			<div className={`${aiInsight ? "grid grid-cols-1 lg:grid-cols-5 gap-5" : ""}`}>
 				<div className={aiInsight ? "lg:col-span-3" : ""}>

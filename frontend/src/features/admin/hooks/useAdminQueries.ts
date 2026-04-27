@@ -20,6 +20,7 @@ import {
 } from "../api/adminApi";
 import { adminApi } from "../../../shared/lib/httpClient";
 import type {
+	FormAIInsightsResponse,
 	FormCreatePayload,
 	OrgDashboardResponse,
 } from "../../../shared/types/api";
@@ -148,8 +149,28 @@ export function useFieldDistributions(formId: string | undefined) {
 	});
 }
 
-export function useGenerateAIInsights() {
-	return useMutation({ mutationFn: generateAIInsights });
+export const aiInsightsQueryKey = (formId: string | undefined) => ["ai-insights", formId];
+
+export function useAIInsightsCache(formId: string | undefined) {
+	return useQuery<FormAIInsightsResponse | null>({
+		queryKey: aiInsightsQueryKey(formId),
+		queryFn: () => null,
+		enabled: Boolean(formId),
+		staleTime: Infinity,
+		gcTime: Infinity,
+		// Cache-only: never auto-fetch — the entry is populated by useGenerateAIInsights.
+		initialData: null,
+	});
+}
+
+export function useGenerateAIInsights(formId: string | undefined) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: () => generateAIInsights(formId!),
+		onSuccess: (data) => {
+			queryClient.setQueryData(aiInsightsQueryKey(formId), data);
+		},
+	});
 }
 
 // --- Billing ---

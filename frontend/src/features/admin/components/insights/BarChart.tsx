@@ -1,5 +1,12 @@
 import type { FieldValueCount } from "../../../../shared/types/api";
 
+const LABEL_CHAR_PX = 5.4;
+
+function ellipsize(value: string, maxChars: number): string {
+	if (value.length <= maxChars) return value;
+	return value.slice(0, Math.max(1, maxChars - 1)) + "…";
+}
+
 export function BarChart({ values, label }: { values: FieldValueCount[]; label: string }) {
 	const w = 720;
 	const h = 160;
@@ -11,6 +18,9 @@ export function BarChart({ values, label }: { values: FieldValueCount[]; label: 
 	const barCount = values.length;
 	const barW = Math.max(8, Math.floor(innerW / barCount) - 4);
 	const gap = barCount > 1 ? (innerW - barW * barCount) / (barCount - 1) : 0;
+	const fontSize = barCount > 6 ? 9 : 10;
+	// Visual fallback only — full text is always available in <title>.
+	const maxLabelChars = Math.max(3, Math.floor((barW + gap * 0.6) / (LABEL_CHAR_PX * (fontSize / 10))));
 
 	return (
 		<div>
@@ -20,8 +30,10 @@ export function BarChart({ values, label }: { values: FieldValueCount[]; label: 
 					const barH = Math.max(2, Math.round((v.count / maxCount) * innerH));
 					const x = pad.l + i * (barW + gap);
 					const y = pad.t + innerH - barH;
+					const tooltip = `${v.value} — ${v.count} (${v.pct.toFixed(0)}%)`;
 					return (
 						<g key={`${v.value}-${i}`}>
+							<title>{tooltip}</title>
 							<rect
 								x={x} y={y} width={barW} height={barH}
 								rx={3} fill="rgb(45, 106, 90)" fillOpacity={0.8}
@@ -30,10 +42,10 @@ export function BarChart({ values, label }: { values: FieldValueCount[]; label: 
 								x={x + barW / 2} y={h - pad.b + 14}
 								textAnchor="middle"
 								fontFamily="system-ui"
-								fontSize={barCount > 6 ? 9 : 10}
+								fontSize={fontSize}
 								fill="rgb(120,113,108)"
 							>
-								{v.value.length > 10 ? v.value.slice(0, 9) + "…" : v.value}
+								{ellipsize(v.value, maxLabelChars)}
 							</text>
 							<text
 								x={x + barW / 2} y={y - 3}
