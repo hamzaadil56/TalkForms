@@ -64,7 +64,10 @@ build/
 .DS_Store
 Thumbs.db
 
-#
+#CLAUDE
 CLAUDE.md
 .claude/** */ 
 .claire/** */
+
+#User Stories
+qa-user-stories/** */
